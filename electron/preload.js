@@ -1,0 +1,8 @@
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  setAlwaysOnTop: (flag) => ipcRenderer.invoke('set-always-on-top', flag),
+  setOpacity: (opacity) => ipcRenderer.invoke('set-opacity', opacity),
+  getScreenSharingStatus: () => ipcRenderer.invoke('get-screen-sharing-status'),
+  setContentProtection: (enable) => ipcRenderer.invoke('set-content-protection', enable),
+})
