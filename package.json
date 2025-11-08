@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "Real-Time AI Meeting Assistant for macOS",
   "main": "electron/main.js",
+  "author": "AI Meeting Assistant Team",
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 npx electron .\"",
     "build": "vite build",
     "build:app": "npm run build && electron-builder",
-    "start": "npm run build && electron .",
+    "start": "npm run build && npx electron .",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
@@ -32,7 +33,7 @@
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
-    "electron": "^28.1.0",
+    "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "electron-vite": "^4.0.1",
     "eslint": "^8.56.0",
@@ -53,14 +54,20 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "electron/**/*",
+      "package.json"
     ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "AI Meeting Assistant needs access to your microphone to record voice input, transcribe speech, and enable real-time AI conversations.",
+        "NSCameraUsageDescription": "AI Meeting Assistant may need camera access for future features.",
+        "NSCameraUseContinuityCameraDeviceType": true
+      }
     }
   }
 }

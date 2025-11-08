@@ -86,7 +86,7 @@ export const getSettings = async (): Promise<Settings | undefined> => {
 
 export const getDefaultSettings = (): Settings => ({
   apiKey: '',
-  model: 'gpt-4-turbo-preview',
+  model: 'gpt-4o',
   temperature: 0.7,
   maxTokens: 4096,
   theme: 'dark',
@@ -96,4 +96,6 @@ export const getDefaultSettings = (): Settings => ({
   voiceEnabled: true,
   audioInputSource: 'microphone',
   selectedAudioDeviceId: undefined,
+  responseMode: 'normal',
+  realtimeAutoDisconnect: true,
 })

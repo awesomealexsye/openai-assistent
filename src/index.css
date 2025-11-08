@@ -86,3 +86,16 @@ code[class*="language-"] {
 * {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
+
+/* Force default cursor everywhere */
+*,
+*::before,
+*::after,
+body,
+input,
+textarea,
+select,
+button,
+a {
+  cursor: default !important;
+}

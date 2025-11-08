@@ -17,7 +17,8 @@ export const streamChatCompletion = async (
   maxTokens: number,
   onChunk: (content: string) => void,
   onComplete: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  abortSignal?: AbortSignal
 ): Promise<void> => {
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -36,6 +37,7 @@ export const streamChatCompletion = async (
         max_tokens: maxTokens,
         stream: true,
       }),
+      signal: abortSignal,
     })
 
     if (!response.ok) {
@@ -80,6 +82,12 @@ export const streamChatCompletion = async (
 
     onComplete()
   } catch (error) {
+    // Don't treat abort as an error - it's intentional
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('Stream aborted by user')
+      onComplete() // Call onComplete to clean up state
+      return
+    }
     onError(error instanceof Error ? error.message : 'Unknown error occurred')
   }
 }

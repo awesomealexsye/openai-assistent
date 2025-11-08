@@ -16,6 +16,7 @@ export interface Chat {
 }
 
 export type AudioInputSource = 'microphone' | 'system-audio'
+export type ResponseMode = 'normal' | 'realtime'
 
 export interface AudioDevice {
   deviceId: string
@@ -35,6 +36,8 @@ export interface Settings {
   voiceEnabled: boolean
   audioInputSource: AudioInputSource
   selectedAudioDeviceId?: string
+  responseMode: ResponseMode
+  realtimeAutoDisconnect: boolean
 }
 
 export interface CodeBlock {

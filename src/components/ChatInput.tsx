@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store'
-import { Send, Mic, MicOff, Loader2 } from 'lucide-react'
+import { Send, Mic, MicOff, Loader2, Zap, Square } from 'lucide-react'
 import { streamChatCompletion } from '../services/openai'
 import { VoiceRecorder, transcribeAudio } from '../services/voice'
+import { RealtimeConnection } from '../services/realtime'
 import { Message } from '../types'
 
 const ChatInput = () => {
@@ -20,6 +21,10 @@ const ChatInput = () => {
   const [isStreaming, setIsStreaming] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const voiceRecorderRef = useRef<VoiceRecorder | null>(null)
+  const realtimeConnectionRef = useRef<RealtimeConnection | null>(null)
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false)
+  const [realtimeResponseBuffer, setRealtimeResponseBuffer] = useState('')
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -53,6 +58,9 @@ const ChatInput = () => {
 
     await addMessage(assistantMessage)
 
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController()
+
     await streamChatCompletion(
       [...currentChat.messages, userMessage],
       settings.apiKey,
@@ -64,12 +72,23 @@ const ChatInput = () => {
       },
       () => {
         setIsStreaming(false)
+        abortControllerRef.current = null
       },
       (error) => {
         console.error('Streaming error:', error)
         setIsStreaming(false)
-      }
+        abortControllerRef.current = null
+      },
+      abortControllerRef.current.signal
     )
+  }
+
+  const handleStopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+      setIsStreaming(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -85,6 +104,15 @@ const ChatInput = () => {
       return
     }
 
+    // Route based on response mode
+    if (settings.responseMode === 'realtime') {
+      await handleRealtimeVoiceToggle()
+    } else {
+      await handleNormalVoiceToggle()
+    }
+  }
+
+  const handleNormalVoiceToggle = async () => {
     if (voiceState.isRecording) {
       // Stop recording
       try {
@@ -95,6 +123,18 @@ const ChatInput = () => {
           const transcription = await transcribeAudio(audioBlob, settings.apiKey)
           setInput(transcription)
           setInputMode('text')
+
+          // Focus the textarea after transcription to allow easy sending with Enter
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.focus()
+              // Move cursor to end of text
+              textareaRef.current.setSelectionRange(
+                transcription.length,
+                transcription.length
+              )
+            }
+          }, 100)
         }
       } catch (error) {
         console.error('Voice recording error:', error)
@@ -124,6 +164,130 @@ const ChatInput = () => {
     }
   }
 
+  const handleRealtimeVoiceToggle = async () => {
+    if (voiceState.isRecording) {
+      // Stop realtime recording
+      try {
+        setVoiceState({ isProcessing: true })
+
+        if (realtimeConnectionRef.current) {
+          // Stop audio streaming
+          realtimeConnectionRef.current.stopAudioStreaming()
+
+          // Commit the audio buffer to get final response
+          realtimeConnectionRef.current.commitAudioBuffer()
+
+          // Wait a bit for final response
+          await new Promise(resolve => setTimeout(resolve, 1000))
+
+          // Add the accumulated response as assistant message
+          if (realtimeResponseBuffer.trim()) {
+            const assistantMessage: Message = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              content: realtimeResponseBuffer.trim(),
+              timestamp: Date.now(),
+              type: 'voice',
+            }
+            await addMessage(assistantMessage)
+          }
+
+          // Reset buffer
+          setRealtimeResponseBuffer('')
+
+          // Disconnect if auto-disconnect is enabled
+          if (settings.realtimeAutoDisconnect) {
+            realtimeConnectionRef.current.disconnect()
+            setIsRealtimeConnected(false)
+          }
+        }
+      } catch (error) {
+        console.error('Realtime recording error:', error)
+        setVoiceState({ error: error instanceof Error ? error.message : 'Realtime recording failed' })
+      } finally {
+        setVoiceState({ isRecording: false, isProcessing: false })
+        setInputMode('text')
+      }
+    } else {
+      // Start realtime recording
+      try {
+        // Initialize connection if not connected
+        if (!realtimeConnectionRef.current || !isRealtimeConnected) {
+          realtimeConnectionRef.current = new RealtimeConnection({
+            apiKey: settings.apiKey,
+            model: 'gpt-4o-realtime-preview-2024-10-01',
+            temperature: settings.temperature,
+            onTextResponse: (text) => {
+              try {
+                // Accumulate text chunks safely
+                if (text && typeof text === 'string') {
+                  setRealtimeResponseBuffer((prev) => (prev || '') + text)
+                }
+              } catch (error) {
+                console.error('Error updating response buffer:', error)
+              }
+            },
+            onError: (error) => {
+              console.error('Realtime API error:', error)
+              try {
+                setVoiceState({ error: error || 'Unknown realtime error' })
+              } catch (e) {
+                console.error('Error setting voice state:', e)
+              }
+            },
+            onConnectionChange: (connected) => {
+              try {
+                setIsRealtimeConnected(connected)
+              } catch (error) {
+                console.error('Error updating connection state:', error)
+              }
+            }
+          })
+
+          await realtimeConnectionRef.current.connect()
+
+          // Set auto-disconnect timer if enabled
+          if (settings.realtimeAutoDisconnect) {
+            realtimeConnectionRef.current.setAutoDisconnect(2)
+          }
+        }
+
+        // Determine which device to use
+        const deviceId = settings.audioInputSource === 'system-audio'
+          ? settings.selectedAudioDeviceId
+          : undefined
+
+        // Start audio streaming
+        await realtimeConnectionRef.current.startAudioStreaming(deviceId)
+
+        // Update states after successful connection and audio start
+        setVoiceState({ isRecording: true, error: null })
+        if (typeof setInputMode === 'function') {
+          setInputMode('voice')
+        }
+        setRealtimeResponseBuffer('') // Clear buffer for new response
+      } catch (error) {
+        console.error('Failed to start realtime recording:', error)
+        setVoiceState({ error: error instanceof Error ? error.message : 'Failed to start realtime recording' })
+
+        // Cleanup on error
+        if (realtimeConnectionRef.current) {
+          realtimeConnectionRef.current.disconnect()
+          setIsRealtimeConnected(false)
+        }
+      }
+    }
+  }
+
+  // Cleanup realtime connection on unmount
+  useEffect(() => {
+    return () => {
+      if (realtimeConnectionRef.current) {
+        realtimeConnectionRef.current.disconnect()
+      }
+    }
+  }, [])
+
   return (
     <div className="p-4">
       <div className="max-w-4xl mx-auto">
@@ -140,7 +304,7 @@ const ChatInput = () => {
             {/* Voice Button */}
             <button
               onClick={handleVoiceToggle}
-              disabled={isStreaming || voiceState.isProcessing}
+              disabled={voiceState.isProcessing}
               className={`p-3 rounded-xl transition-all flex-shrink-0 ${
                 voiceState.isRecording
                   ? 'bg-red-600 hover:bg-red-700 animate-pulse-slow'
@@ -165,20 +329,27 @@ const ChatInput = () => {
               placeholder={
                 voiceState.isRecording
                   ? 'Recording... Click the mic to stop'
+                  : isStreaming
+                  ? 'Streaming response... You can type your next question'
                   : 'Type a message or use voice input...'
               }
-              disabled={isStreaming || voiceState.isRecording}
+              disabled={voiceState.isRecording}
               className="flex-1 bg-transparent border-none outline-none resize-none max-h-32 py-3 px-2 disabled:opacity-50"
               rows={1}
             />
 
-            {/* Send Button */}
+            {/* Send/Stop Button */}
             <button
-              onClick={() => handleSendMessage(input)}
-              disabled={!input.trim() || isStreaming || !settings.apiKey}
-              className="p-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              onClick={isStreaming ? handleStopStreaming : () => handleSendMessage(input)}
+              disabled={!isStreaming && (!input.trim() || !settings.apiKey)}
+              className={`p-3 ${
+                isStreaming
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              } rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
+              title={isStreaming ? 'Stop streaming' : 'Send message'}
             >
-              {isStreaming ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+              {isStreaming ? <Square size={20} fill="currentColor" /> : <Send size={20} />}
             </button>
           </div>
 
@@ -186,12 +357,25 @@ const ChatInput = () => {
           <div className="px-4 pb-3 flex items-center justify-between text-xs text-gray-500">
             <span>
               {voiceState.isRecording
-                ? 'Voice recording active'
+                ? settings.responseMode === 'realtime'
+                  ? '🔴 LIVE - Realtime streaming active'
+                  : 'Voice recording active'
                 : 'Press Shift+Enter for new line'}
             </span>
-            <span>
-              {settings.model} • {settings.temperature.toFixed(1)} temp
-            </span>
+            <div className="flex items-center gap-2">
+              {settings.responseMode === 'realtime' && (
+                <span className="flex items-center gap-1 text-purple-400">
+                  <Zap size={12} />
+                  Realtime
+                  {isRealtimeConnected && (
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse-slow"></span>
+                  )}
+                </span>
+              )}
+              <span>
+                {settings.model} • {settings.temperature.toFixed(1)} temp
+              </span>
+            </div>
           </div>
         </div>
       </div>

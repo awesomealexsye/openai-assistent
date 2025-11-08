@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store'
-import { X, Eye, EyeOff, Check, AlertCircle, Mic, Speaker } from 'lucide-react'
+import { X, Eye, EyeOff, Check, AlertCircle, Mic, Speaker, Zap } from 'lucide-react'
 import { testApiKey } from '../services/openai'
 import { getAudioInputDevices, detectBlackholeDevice, type AudioDevice } from '../lib/audioDevices'
 
@@ -114,6 +114,8 @@ const Settings = () => {
                   onChange={(e) => updateSettings({ model: e.target.value })}
                   className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
                 >
+                  <option value="gpt-4o">GPT-4o (Latest)</option>
+                  <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</option>
                   <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
                   <option value="gpt-4">GPT-4</option>
                   <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
@@ -321,6 +323,113 @@ const Settings = () => {
                   <p className="mt-2 text-xs text-gray-400">
                     Select the Blackhole audio device to capture system audio
                   </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Response Mode Settings */}
+          <div className="border-t border-gray-700 pt-6">
+            <h3 className="text-lg font-medium mb-4">Response Mode</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-3">Mode Selection</label>
+                <div className="space-y-2">
+                  {/* Normal Mode */}
+                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${
+                    settings.responseMode === 'normal'
+                      ? 'border-blue-500 bg-blue-500/10'
+                      : 'border-gray-700'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="responseMode"
+                      value="normal"
+                      checked={settings.responseMode === 'normal'}
+                      onChange={(e) => updateSettings({ responseMode: e.target.value as 'normal' | 'realtime' })}
+                      className="w-4 h-4 text-blue-600 mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium flex items-center gap-2">
+                        Normal Mode
+                        <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded">Recommended</span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Record → Transcribe → Review → Send → Response
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">
+                        • Can review and edit before sending<br/>
+                        • Cost: ~$0.006/min audio + tokens<br/>
+                        • Works with all GPT models
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Realtime Mode */}
+                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${
+                    settings.responseMode === 'realtime'
+                      ? 'border-purple-500 bg-purple-500/10'
+                      : 'border-gray-700'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="responseMode"
+                      value="realtime"
+                      checked={settings.responseMode === 'realtime'}
+                      onChange={(e) => updateSettings({ responseMode: e.target.value as 'normal' | 'realtime' })}
+                      className="w-4 h-4 text-purple-600 mt-1"
+                    />
+                    <Zap size={20} className="text-purple-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="font-medium flex items-center gap-2">
+                        Realtime Mode
+                        <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">Fast</span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Speak → Instant text response via WebSocket
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">
+                        • 2x faster responses (~500ms)<br/>
+                        • Cost: ~$0.06/min audio + tokens<br/>
+                        • No review (auto-sends)
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Realtime Warning */}
+                {settings.responseMode === 'realtime' && (
+                  <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                    <div className="flex items-start gap-2 text-sm text-orange-400">
+                      <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                      <div>
+                        <div className="font-medium mb-1">Realtime Mode is ~10x more expensive</div>
+                        <div className="text-xs text-orange-400/80">
+                          Audio input costs $0.06/minute vs $0.006/minute in Normal mode. Use for quick interactions only.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Auto-Disconnect Toggle (only show for realtime) */}
+              {settings.responseMode === 'realtime' && (
+                <div className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">Auto-Disconnect</p>
+                    <p className="text-xs text-gray-400">Disconnect after 2 minutes of inactivity</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.realtimeAutoDisconnect}
+                      onChange={(e) => updateSettings({ realtimeAutoDisconnect: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
                 </div>
               )}
             </div>
