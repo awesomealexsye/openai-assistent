@@ -71,6 +71,10 @@ export interface ElectronAPI {
   checkMicrophonePermission: () => Promise<MicrophonePermissionStatus>
   requestMicrophonePermission: () => Promise<boolean>
   openSystemPreferencesSecurity: () => Promise<boolean>
+  windowMinimize: () => Promise<boolean>
+  windowMaximize: () => Promise<boolean>
+  windowClose: () => Promise<boolean>
+  isWindowMaximized: () => Promise<boolean>
 }
 
 declare global {

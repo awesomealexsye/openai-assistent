@@ -248,7 +248,7 @@ const Settings = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">Screen Protection</p>
-                  <p className="text-sm text-gray-400">Hide window during screen sharing</p>
+                  <p className="text-sm text-gray-400">Hide window in screen recordings and screen sharing (enabled by default)</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input

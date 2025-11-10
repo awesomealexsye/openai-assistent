@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkMicrophonePermission: () => ipcRenderer.invoke('check-microphone-permission'),
   requestMicrophonePermission: () => ipcRenderer.invoke('request-microphone-permission'),
   openSystemPreferencesSecurity: () => ipcRenderer.invoke('open-system-preferences-security'),
+  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
+  windowClose: () => ipcRenderer.invoke('window-close'),
+  isWindowMaximized: () => ipcRenderer.invoke('is-window-maximized'),
 })

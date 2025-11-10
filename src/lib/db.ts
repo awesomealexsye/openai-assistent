@@ -92,7 +92,7 @@ export const getDefaultSettings = (): Settings => ({
   theme: 'dark',
   alwaysOnTop: false,
   opacity: 1,
-  screenProtection: false,
+  screenProtection: true,
   voiceEnabled: true,
   audioInputSource: 'microphone',
   selectedAudioDeviceId: undefined,

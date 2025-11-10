@@ -99,3 +99,21 @@ button,
 a {
   cursor: default !important;
 }
+
+/* Electron window drag regions */
+.drag-region {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.no-drag-region {
+  -webkit-app-region: no-drag;
+}
+
+/* Window resize border for better UX */
+body {
+  position: relative;
+}
+
+/* Custom resize cursors would be handled by Electron natively */

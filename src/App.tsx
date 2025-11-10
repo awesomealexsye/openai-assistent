@@ -3,6 +3,7 @@ import { useStore } from './store'
 import Sidebar from './components/Sidebar'
 import ChatPanel from './components/ChatPanel'
 import Settings from './components/Settings'
+import TitleBar from './components/TitleBar'
 
 function App() {
   const { loadChats, loadSettings, isSettingsOpen } = useStore()
@@ -13,12 +14,12 @@ function App() {
   }, [loadChats, loadSettings])
 
   return (
-    <div className="w-full h-full flex bg-gray-900">
-      {/* macOS Traffic Lights Spacer */}
-      <div className="absolute top-0 left-0 w-20 h-12 z-50" style={{ WebkitAppRegion: 'drag' } as any} />
+    <div className="w-full h-full flex flex-col bg-gray-900">
+      {/* Custom Title Bar */}
+      <TitleBar />
 
       {/* Main Layout */}
-      <div className="flex w-full h-full">
+      <div className="flex w-full h-full pt-12">
         {/* Sidebar */}
         <Sidebar />
 
