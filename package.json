@@ -1,9 +1,9 @@
 {
-  "name": "ai-meeting-assistant",
+  "name": "arbaz-macbook",
   "version": "1.0.0",
-  "description": "Real-Time AI Meeting Assistant for macOS",
+  "description": "Arbaz Macbook - AI Assistant for macOS",
   "main": "electron/main.js",
-  "author": "AI Meeting Assistant Team",
+  "author": "Arbaz Khan",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 npx electron .\"",
     "build": "vite build",
@@ -13,6 +13,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@ricky0123/vad-web": "^0.0.29",
     "date-fns": "^3.0.6",
     "framer-motion": "^10.18.0",
     "idb": "^8.0.0",
@@ -47,8 +48,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.aimeetingassistant.app",
-    "productName": "AI Meeting Assistant",
+    "appId": "com.arbazmacbook.app",
+    "productName": "Arbaz Macbook",
     "directories": {
       "output": "release"
     },
@@ -64,10 +65,16 @@
         "zip"
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "AI Meeting Assistant needs access to your microphone to record voice input, transcribe speech, and enable real-time AI conversations.",
-        "NSCameraUsageDescription": "AI Meeting Assistant may need camera access for future features.",
-        "NSCameraUseContinuityCameraDeviceType": true
-      }
+        "NSMicrophoneUsageDescription": "Arbaz Macbook needs access to your microphone to record voice input, transcribe speech, and enable real-time AI conversations.",
+        "NSCameraUsageDescription": "Arbaz Macbook may need camera access for future features.",
+        "NSCameraUseContinuityCameraDeviceType": true,
+        "NSSupportsAutomaticGraphicsSwitching": true,
+        "NSHighResolutionCapable": true
+      },
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist"
     }
   }
 }

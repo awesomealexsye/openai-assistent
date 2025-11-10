@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>AI Meeting Assistant</string>
+	<string>Arbaz Macbook</string>
 	<key>CFBundleExecutable</key>
 	<string>Electron</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.aimeetingassistant.app</string>
+	<string>com.arbazmacbook.app</string>
 	<key>CFBundleName</key>
-	<string>AI Meeting Assistant</string>
+	<string>Arbaz Macbook</string>
 	<key>CFBundleVersion</key>
 	<string>1.0.0</string>
 	<key>CFBundleShortVersionString</key>
@@ -17,10 +17,14 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>10.15.0</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>AI Meeting Assistant needs access to your microphone to record voice input, transcribe speech, and enable real-time AI conversations.</string>
+	<string>Arbaz Macbook needs access to your microphone to record voice input, transcribe speech, and enable real-time AI conversations.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>AI Meeting Assistant may need camera access for future features.</string>
+	<string>Arbaz Macbook may need camera access for future features.</string>
 	<key>NSCameraUseContinuityCameraDeviceType</key>
+	<true/>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>
 </plist>

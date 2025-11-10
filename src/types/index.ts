@@ -16,7 +16,7 @@ export interface Chat {
 }
 
 export type AudioInputSource = 'microphone' | 'system-audio'
-export type ResponseMode = 'normal' | 'realtime'
+export type ResponseMode = 'normal' | 'realtime' | 'interview'
 
 export interface AudioDevice {
   deviceId: string
@@ -38,6 +38,10 @@ export interface Settings {
   selectedAudioDeviceId?: string
   responseMode: ResponseMode
   realtimeAutoDisconnect: boolean
+  interviewModeEnabled: boolean
+  vadSensitivity: number
+  silenceDuration: number
+  showTranscriptionPreview: boolean
 }
 
 export interface CodeBlock {
@@ -54,11 +58,19 @@ export interface VoiceState {
   error: string | null
 }
 
+export interface MicrophonePermissionStatus {
+  status: 'not-determined' | 'denied' | 'granted' | 'restricted'
+  granted: boolean
+}
+
 export interface ElectronAPI {
   setAlwaysOnTop: (flag: boolean) => Promise<boolean>
   setOpacity: (opacity: number) => Promise<boolean>
   getScreenSharingStatus: () => Promise<boolean>
   setContentProtection: (enable: boolean) => Promise<boolean>
+  checkMicrophonePermission: () => Promise<MicrophonePermissionStatus>
+  requestMicrophonePermission: () => Promise<boolean>
+  openSystemPreferencesSecurity: () => Promise<boolean>
 }
 
 declare global {

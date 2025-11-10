@@ -26,6 +26,56 @@ const ChatInput = () => {
   const [realtimeResponseBuffer, setRealtimeResponseBuffer] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Check and request microphone permission
+  const checkMicrophonePermission = async (): Promise<boolean> => {
+    try {
+      if (window.electronAPI && window.electronAPI.checkMicrophonePermission) {
+        const permissionStatus = await window.electronAPI.checkMicrophonePermission()
+        console.log('Microphone permission status:', permissionStatus)
+
+        if (!permissionStatus.granted) {
+          // Try to request permission via Electron API first
+          await window.electronAPI.requestMicrophonePermission()
+
+          // Now attempt actual microphone access to trigger native dialog
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            // Immediately stop the stream - we just needed to trigger the permission dialog
+            stream.getTracks().forEach(track => track.stop())
+            console.log('Microphone permission granted via getUserMedia')
+            return true
+          } catch (mediaError) {
+            console.error('Failed to access microphone:', mediaError)
+            setVoiceState({
+              error: 'Microphone permission denied. Please open Settings and grant permission, or go to System Settings > Privacy & Security > Microphone'
+            })
+            return false
+          }
+        }
+
+        return true
+      } else {
+        // Browser fallback - directly request via getUserMedia
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach(track => track.stop())
+          return true
+        } catch (error) {
+          setVoiceState({
+            error: 'Microphone permission denied. Please allow microphone access.'
+          })
+          return false
+        }
+      }
+    } catch (error) {
+      console.error('Error checking microphone permission:', error)
+      setVoiceState({
+        error: 'Failed to check microphone permission. Please try again.'
+      })
+      return false
+    }
+  }
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -143,7 +193,12 @@ const ChatInput = () => {
         setVoiceState({ isRecording: false, isProcessing: false })
       }
     } else {
-      // Start recording
+      // Start recording - check permission first
+      const hasPermission = await checkMicrophonePermission()
+      if (!hasPermission) {
+        return
+      }
+
       try {
         if (!voiceRecorderRef.current) {
           voiceRecorderRef.current = new VoiceRecorder()
@@ -209,7 +264,12 @@ const ChatInput = () => {
         setInputMode('text')
       }
     } else {
-      // Start realtime recording
+      // Start realtime recording - check permission first
+      const hasPermission = await checkMicrophonePermission()
+      if (!hasPermission) {
+        return
+      }
+
       try {
         // Initialize connection if not connected
         if (!realtimeConnectionRef.current || !isRealtimeConnected) {

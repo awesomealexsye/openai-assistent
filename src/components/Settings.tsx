@@ -16,6 +16,10 @@ const Settings = () => {
   const [hasBlackhole, setHasBlackhole] = useState(false)
   const [loadingDevices, setLoadingDevices] = useState(true)
 
+  // Microphone permission states
+  const [micPermissionStatus, setMicPermissionStatus] = useState<'checking' | 'granted' | 'denied' | 'not-determined'>('checking')
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false)
+
   // Load audio devices on mount
   useEffect(() => {
     const loadDevices = async () => {
@@ -35,6 +39,68 @@ const Settings = () => {
 
     loadDevices()
   }, [])
+
+  // Check microphone permission on mount and when settings open
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (window.electronAPI && window.electronAPI.checkMicrophonePermission) {
+        try {
+          const result = await window.electronAPI.checkMicrophonePermission()
+          setMicPermissionStatus(result.status as 'granted' | 'denied' | 'not-determined')
+        } catch (error) {
+          console.error('Error checking microphone permission:', error)
+          setMicPermissionStatus('denied')
+        }
+      } else {
+        // In browser/dev mode, try to check via browser API
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach(track => track.stop())
+          setMicPermissionStatus('granted')
+        } catch (error) {
+          setMicPermissionStatus('denied')
+        }
+      }
+    }
+
+    checkPermission()
+  }, [])
+
+  const handleRequestMicrophonePermission = async () => {
+    setIsRequestingPermission(true)
+    try {
+      if (window.electronAPI && window.electronAPI.requestMicrophonePermission) {
+        // First try Electron API
+        const granted = await window.electronAPI.requestMicrophonePermission()
+
+        if (!granted) {
+          // If not granted or status is 'denied', we need to trigger actual mic access
+          // This will show the native macOS dialog
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach(track => track.stop())
+          setMicPermissionStatus('granted')
+        } else {
+          setMicPermissionStatus('granted')
+        }
+      } else {
+        // Fallback to browser API
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach(track => track.stop())
+        setMicPermissionStatus('granted')
+      }
+    } catch (error) {
+      console.error('Failed to request microphone permission:', error)
+      setMicPermissionStatus('denied')
+    } finally {
+      setIsRequestingPermission(false)
+    }
+  }
+
+  const handleOpenSystemPreferences = async () => {
+    if (window.electronAPI && window.electronAPI.openSystemPreferencesSecurity) {
+      await window.electronAPI.openSystemPreferencesSecurity()
+    }
+  }
 
   const handleTestApiKey = async () => {
     if (!apiKey) return
@@ -301,6 +367,71 @@ const Settings = () => {
                   <div className="mt-3 text-sm text-gray-400">
                     Loading audio devices...
                   </div>
+                )}
+              </div>
+
+              {/* Microphone Permission Status */}
+              <div className="p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Mic size={18} className="text-gray-400" />
+                    <span className="font-medium">Microphone Permission</span>
+                  </div>
+                  {micPermissionStatus === 'checking' && (
+                    <span className="text-xs text-gray-400">Checking...</span>
+                  )}
+                  {micPermissionStatus === 'granted' && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">
+                      <Check size={14} />
+                      <span>Granted</span>
+                    </div>
+                  )}
+                  {(micPermissionStatus === 'denied' || micPermissionStatus === 'not-determined') && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs">
+                      <AlertCircle size={14} />
+                      <span>Not Granted</span>
+                    </div>
+                  )}
+                </div>
+
+                {(micPermissionStatus === 'denied' || micPermissionStatus === 'not-determined') && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-400">
+                      Voice recording requires microphone access. Click below to grant permission.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleRequestMicrophonePermission}
+                        disabled={isRequestingPermission}
+                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        {isRequestingPermission ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>Requesting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic size={16} />
+                            <span>Grant Permission</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleOpenSystemPreferences}
+                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
+                        title="Open System Settings"
+                      >
+                        Open Settings
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {micPermissionStatus === 'granted' && (
+                  <p className="text-xs text-gray-400">
+                    Microphone access is enabled. You can use voice recording features.
+                  </p>
                 )}
               </div>
 

@@ -1,6 +1,6 @@
-# AI Meeting Assistant
+# Arbaz Macbook
 
-A real-time AI meeting assistant for macOS with dual text/voice input, built with Electron, React, TypeScript, and Tailwind CSS.
+A real-time AI assistant for macOS with dual text/voice input, built with Electron, React, TypeScript, and Tailwind CSS.
 
 ## Features
 
