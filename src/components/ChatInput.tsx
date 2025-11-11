@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store'
-import { Send, Mic, MicOff, Loader2, Zap, Square } from 'lucide-react'
+import { Send, Mic, MicOff, Loader2, Zap, Square, Speaker, X } from 'lucide-react'
 import { streamChatCompletion } from '../services/openai'
 import { VoiceRecorder, transcribeAudio } from '../services/voice'
 import { RealtimeConnection } from '../services/realtime'
 import { Message } from '../types'
+import { detectBlackholeDevice } from '../lib/audioDevices'
 
 const ChatInput = () => {
   const {
@@ -25,6 +26,8 @@ const ChatInput = () => {
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false)
   const [realtimeResponseBuffer, setRealtimeResponseBuffer] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
+  const [hasBlackhole, setHasBlackhole] = useState(false)
+  const [activeAudioSource, setActiveAudioSource] = useState<'microphone' | 'system-audio' | null>(null)
 
   // Check and request microphone permission
   const checkMicrophonePermission = async (): Promise<boolean> => {
@@ -75,6 +78,15 @@ const ChatInput = () => {
       return false
     }
   }
+
+  // Check for Blackhole on mount
+  useEffect(() => {
+    const checkBlackhole = async () => {
+      const device = await detectBlackholeDevice()
+      setHasBlackhole(!!device)
+    }
+    checkBlackhole()
+  }, [])
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -148,21 +160,58 @@ const ChatInput = () => {
     }
   }
 
-  const handleVoiceToggle = async () => {
+  const handleCancelVoice = async () => {
+    try {
+      // Stop recording if active
+      if (voiceRecorderRef.current && voiceState.isRecording) {
+        await voiceRecorderRef.current.stopRecording()
+      }
+
+      // Stop realtime connection if active
+      if (realtimeConnectionRef.current && settings.responseMode === 'realtime') {
+        realtimeConnectionRef.current.stopAudioStreaming()
+        if (settings.realtimeAutoDisconnect) {
+          realtimeConnectionRef.current.disconnect()
+          setIsRealtimeConnected(false)
+        }
+        setRealtimeResponseBuffer('')
+      }
+
+      // Reset all states
+      setVoiceState({ isRecording: false, isProcessing: false, error: null })
+      setActiveAudioSource(null)
+      setInputMode('text')
+    } catch (error) {
+      console.error('Error canceling voice recording:', error)
+      setVoiceState({ isRecording: false, isProcessing: false, error: null })
+      setActiveAudioSource(null)
+    }
+  }
+
+  const handleVoiceToggle = async (audioSource: 'microphone' | 'system-audio') => {
     if (!settings.apiKey) {
       alert('Please set your OpenAI API key in settings first')
       return
     }
 
+    // If already recording from a different source, stop it first
+    if (voiceState.isRecording && activeAudioSource && activeAudioSource !== audioSource) {
+      alert('Please stop the current recording before starting a new one')
+      return
+    }
+
+    // Set the active audio source
+    setActiveAudioSource(audioSource)
+
     // Route based on response mode
     if (settings.responseMode === 'realtime') {
-      await handleRealtimeVoiceToggle()
+      await handleRealtimeVoiceToggle(audioSource)
     } else {
-      await handleNormalVoiceToggle()
+      await handleNormalVoiceToggle(audioSource)
     }
   }
 
-  const handleNormalVoiceToggle = async () => {
+  const handleNormalVoiceToggle = async (audioSource: 'microphone' | 'system-audio') => {
     if (voiceState.isRecording) {
       // Stop recording
       try {
@@ -191,6 +240,7 @@ const ChatInput = () => {
         setVoiceState({ error: error instanceof Error ? error.message : 'Voice recording failed' })
       } finally {
         setVoiceState({ isRecording: false, isProcessing: false })
+        setActiveAudioSource(null)
       }
     } else {
       // Start recording - check permission first
@@ -204,8 +254,8 @@ const ChatInput = () => {
           voiceRecorderRef.current = new VoiceRecorder()
         }
 
-        // Determine which device to use
-        const deviceId = settings.audioInputSource === 'system-audio'
+        // Determine which device to use based on the audio source parameter
+        const deviceId = audioSource === 'system-audio'
           ? settings.selectedAudioDeviceId
           : undefined
 
@@ -215,11 +265,12 @@ const ChatInput = () => {
       } catch (error) {
         console.error('Failed to start recording:', error)
         setVoiceState({ error: error instanceof Error ? error.message : 'Failed to start recording' })
+        setActiveAudioSource(null)
       }
     }
   }
 
-  const handleRealtimeVoiceToggle = async () => {
+  const handleRealtimeVoiceToggle = async (audioSource: 'microphone' | 'system-audio') => {
     if (voiceState.isRecording) {
       // Stop realtime recording
       try {
@@ -262,6 +313,7 @@ const ChatInput = () => {
       } finally {
         setVoiceState({ isRecording: false, isProcessing: false })
         setInputMode('text')
+        setActiveAudioSource(null)
       }
     } else {
       // Start realtime recording - check permission first
@@ -312,8 +364,8 @@ const ChatInput = () => {
           }
         }
 
-        // Determine which device to use
-        const deviceId = settings.audioInputSource === 'system-audio'
+        // Determine which device to use based on the audio source parameter
+        const deviceId = audioSource === 'system-audio'
           ? settings.selectedAudioDeviceId
           : undefined
 
@@ -335,6 +387,7 @@ const ChatInput = () => {
           realtimeConnectionRef.current.disconnect()
           setIsRealtimeConnected(false)
         }
+        setActiveAudioSource(null)
       }
     }
   }
@@ -361,24 +414,61 @@ const ChatInput = () => {
         {/* Input Container */}
         <div className="glass rounded-2xl border border-gray-700 overflow-hidden">
           <div className="flex items-end gap-2 p-3">
-            {/* Voice Button */}
+            {/* Microphone Button */}
             <button
-              onClick={handleVoiceToggle}
+              onClick={() => handleVoiceToggle('microphone')}
               disabled={voiceState.isProcessing}
               className={`p-3 rounded-xl transition-all flex-shrink-0 ${
-                voiceState.isRecording
+                voiceState.isRecording && activeAudioSource === 'microphone'
                   ? 'bg-red-600 hover:bg-red-700 animate-pulse-slow'
                   : 'bg-gray-700 hover:bg-gray-600'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
+              title="Record from microphone"
             >
-              {voiceState.isProcessing ? (
+              {voiceState.isProcessing && activeAudioSource === 'microphone' ? (
                 <Loader2 size={20} className="animate-spin" />
-              ) : voiceState.isRecording ? (
+              ) : voiceState.isRecording && activeAudioSource === 'microphone' ? (
                 <MicOff size={20} />
               ) : (
                 <Mic size={20} />
               )}
             </button>
+
+            {/* System Audio Button (Blackhole) */}
+            <button
+              onClick={() => handleVoiceToggle('system-audio')}
+              disabled={voiceState.isProcessing || !hasBlackhole}
+              className={`p-3 rounded-xl transition-all flex-shrink-0 ${
+                voiceState.isRecording && activeAudioSource === 'system-audio'
+                  ? 'bg-purple-600 hover:bg-purple-700 animate-pulse-slow'
+                  : hasBlackhole
+                  ? 'bg-gray-700 hover:bg-gray-600'
+                  : 'bg-gray-800 opacity-50 cursor-not-allowed'
+              } disabled:opacity-50 disabled:cursor-not-allowed relative`}
+              title={hasBlackhole ? 'Record from system audio (Blackhole)' : 'Blackhole not detected - Install Blackhole to use system audio'}
+            >
+              {voiceState.isProcessing && activeAudioSource === 'system-audio' ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : voiceState.isRecording && activeAudioSource === 'system-audio' ? (
+                <MicOff size={20} />
+              ) : (
+                <Speaker size={20} />
+              )}
+              {!hasBlackhole && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-gray-900" title="Blackhole not detected" />
+              )}
+            </button>
+
+            {/* Cancel Voice Recording Button - Only visible when recording or processing */}
+            {(voiceState.isRecording || voiceState.isProcessing) && (
+              <button
+                onClick={handleCancelVoice}
+                className="p-3 rounded-xl transition-all flex-shrink-0 bg-red-600 hover:bg-red-700 border-2 border-red-500"
+                title="Cancel voice recording/transcription"
+              >
+                <X size={20} className="text-white" />
+              </button>
+            )}
 
             {/* Text Input */}
             <textarea
@@ -418,8 +508,8 @@ const ChatInput = () => {
             <span>
               {voiceState.isRecording
                 ? settings.responseMode === 'realtime'
-                  ? '🔴 LIVE - Realtime streaming active'
-                  : 'Voice recording active'
+                  ? `🔴 LIVE - Realtime streaming active${activeAudioSource === 'system-audio' ? ' (System Audio)' : ' (Microphone)'}`
+                  : `Voice recording active${activeAudioSource === 'system-audio' ? ' (System Audio)' : ' (Microphone)'}`
                 : 'Press Shift+Enter for new line'}
             </span>
             <div className="flex items-center gap-2">
