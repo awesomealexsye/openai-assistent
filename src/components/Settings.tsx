@@ -20,6 +20,9 @@ const Settings = () => {
   const [micPermissionStatus, setMicPermissionStatus] = useState<'checking' | 'granted' | 'denied' | 'not-determined'>('checking')
   const [isRequestingPermission, setIsRequestingPermission] = useState(false)
 
+  // Realtime mode modal state
+  const [showRealtimeModal, setShowRealtimeModal] = useState(false)
+
   // Load audio devices on mount
   useEffect(() => {
     const loadDevices = async () => {
@@ -113,6 +116,15 @@ const Settings = () => {
   const handleSave = async () => {
     await updateSettings({ apiKey })
     toggleSettings()
+  }
+
+  const handleResponseModeChange = (mode: 'normal' | 'realtime') => {
+    if (mode === 'realtime') {
+      // Show the "under development" modal instead of allowing the change
+      setShowRealtimeModal(true)
+    } else {
+      updateSettings({ responseMode: mode })
+    }
   }
 
   return (
@@ -478,7 +490,7 @@ const Settings = () => {
                       name="responseMode"
                       value="normal"
                       checked={settings.responseMode === 'normal'}
-                      onChange={(e) => updateSettings({ responseMode: e.target.value as 'normal' | 'realtime' })}
+                      onChange={(e) => handleResponseModeChange(e.target.value as 'normal' | 'realtime')}
                       className="w-4 h-4 text-blue-600 mt-1"
                     />
                     <div className="flex-1">
@@ -498,24 +510,24 @@ const Settings = () => {
                   </label>
 
                   {/* Realtime Mode */}
-                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${
+                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all opacity-60 ${
                     settings.responseMode === 'realtime'
                       ? 'border-purple-500 bg-purple-500/10'
-                      : 'border-gray-700'
+                      : 'border-gray-700 hover:bg-gray-800/30'
                   }`}>
                     <input
                       type="radio"
                       name="responseMode"
                       value="realtime"
                       checked={settings.responseMode === 'realtime'}
-                      onChange={(e) => updateSettings({ responseMode: e.target.value as 'normal' | 'realtime' })}
+                      onChange={(e) => handleResponseModeChange(e.target.value as 'normal' | 'realtime')}
                       className="w-4 h-4 text-purple-600 mt-1"
                     />
                     <Zap size={20} className="text-purple-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <div className="font-medium flex items-center gap-2">
                         Realtime Mode
-                        <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">Fast</span>
+                        <span className="text-xs px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded">Coming Soon</span>
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
                         Speak → Instant text response via WebSocket
@@ -528,41 +540,7 @@ const Settings = () => {
                     </div>
                   </label>
                 </div>
-
-                {/* Realtime Warning */}
-                {settings.responseMode === 'realtime' && (
-                  <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                    <div className="flex items-start gap-2 text-sm text-orange-400">
-                      <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium mb-1">Realtime Mode is ~10x more expensive</div>
-                        <div className="text-xs text-orange-400/80">
-                          Audio input costs $0.06/minute vs $0.006/minute in Normal mode. Use for quick interactions only.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
-
-              {/* Auto-Disconnect Toggle (only show for realtime) */}
-              {settings.responseMode === 'realtime' && (
-                <div className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">Auto-Disconnect</p>
-                    <p className="text-xs text-gray-400">Disconnect after 2 minutes of inactivity</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.realtimeAutoDisconnect}
-                      onChange={(e) => updateSettings({ realtimeAutoDisconnect: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                  </label>
-                </div>
-              )}
             </div>
           </div>
 
@@ -618,6 +596,68 @@ const Settings = () => {
           </button>
         </div>
       </div>
+
+      {/* Realtime Mode Under Development Modal */}
+      {showRealtimeModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60]" onClick={() => setShowRealtimeModal(false)}>
+          <div className="glass-dark rounded-2xl w-full max-w-md mx-4 border border-gray-700" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-500/20 rounded-lg">
+                  <Zap className="text-yellow-400" size={24} />
+                </div>
+                <h3 className="text-xl font-semibold text-white">Realtime Mode</h3>
+              </div>
+              <button
+                onClick={() => setShowRealtimeModal(false)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <AlertCircle size={20} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="text-blue-400 font-medium mb-2">Feature Under Development</p>
+                    <p className="text-gray-300">
+                      Realtime Mode is currently under development and will be available in a future update.
+                      We're working hard to bring you instant voice-to-text responses!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-sm text-gray-400">
+                  <p className="mb-2">For now, please use <span className="font-semibold text-white">Normal Mode</span>, which offers:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Review and edit transcriptions before sending</li>
+                    <li>Lower cost (~$0.006/min vs $0.06/min)</li>
+                    <li>Works with all GPT models</li>
+                  </ul>
+                </div>
+
+                <p className="text-sm text-gray-500 italic">
+                  Stay tuned! We'll notify you when Realtime Mode is ready. 🚀
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-700">
+              <button
+                onClick={() => setShowRealtimeModal(false)}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
