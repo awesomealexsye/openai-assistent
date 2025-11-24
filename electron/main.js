@@ -65,16 +65,19 @@ const createWindow = () => {
   })
 
   // In development, load from Vite dev server
-  // Check if we're in development by looking for common dev indicators
-  const isDev = !app.isPackaged
+  // Check if VITE_DEV_SERVER_URL is set (only set when running npm run dev)
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL
 
-  if (isDev) {
-    // Vite dev server - try different ports in case of conflicts
-    const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
+  if (devServerUrl) {
+    // Development mode with Vite dev server
+    console.log('Loading from Vite dev server:', devServerUrl)
     mainWindow.loadURL(devServerUrl)
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    // Production mode - load from built files
+    const indexPath = path.join(__dirname, '../dist/index.html')
+    console.log('Loading from built files:', indexPath)
+    mainWindow.loadFile(indexPath)
   }
 
   mainWindow.on('closed', () => {
