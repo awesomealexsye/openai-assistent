@@ -42,6 +42,7 @@ export interface Settings {
   vadSensitivity: number
   silenceDuration: number
   showTranscriptionPreview: boolean
+  assemblyAiApiKey: string
 }
 
 export interface CodeBlock {
@@ -75,6 +76,7 @@ export interface ElectronAPI {
   windowMaximize: () => Promise<boolean>
   windowClose: () => Promise<boolean>
   isWindowMaximized: () => Promise<boolean>
+  createAssemblyAiToken: (apiKey: string) => Promise<string>
 }
 
 declare global {

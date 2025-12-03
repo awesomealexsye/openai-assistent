@@ -19,7 +19,7 @@ export const initDB = async (): Promise<IDBPDatabase<AssistantDB>> => {
   if (dbInstance) return dbInstance
 
   try {
-    dbInstance = await openDB<AssistantDB>('arbaz-macbook', 2, {
+    dbInstance = await openDB<AssistantDB>('arbaz-macbook', 3, {
       upgrade(db, oldVersion) {
         // Create chats store
         if (!db.objectStoreNames.contains('chats')) {
@@ -102,4 +102,5 @@ export const getDefaultSettings = (): Settings => ({
   vadSensitivity: 0.8,
   silenceDuration: 400,
   showTranscriptionPreview: true,
+  assemblyAiApiKey: '',
 })

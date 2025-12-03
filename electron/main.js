@@ -204,3 +204,20 @@ ipcMain.handle('is-window-maximized', () => {
   }
   return false
 })
+
+// AssemblyAI Token Generation
+ipcMain.handle('create-assemblyai-token', async (_event, apiKey) => {
+  try {
+    const { AssemblyAI } = require('assemblyai')
+    const client = new AssemblyAI({ apiKey })
+    console.log('Generating AssemblyAI token with expires_in_seconds: 480')
+    const token = await client.streaming.createTemporaryToken({
+      expires_in_seconds: 480
+    })
+    console.log('AssemblyAI token generated successfully')
+    return token
+  } catch (error) {
+    console.error('Error generating AssemblyAI token:', error)
+    throw error
+  }
+})

@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowClose: () => ipcRenderer.invoke('window-close'),
   isWindowMaximized: () => ipcRenderer.invoke('is-window-maximized'),
+  createAssemblyAiToken: (apiKey) => ipcRenderer.invoke('create-assemblyai-token', apiKey),
 })

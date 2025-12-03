@@ -15,10 +15,12 @@
   },
   "dependencies": {
     "@ricky0123/vad-web": "^0.0.29",
+    "assemblyai": "^4.19.0",
     "date-fns": "^3.0.6",
     "framer-motion": "^10.18.0",
     "idb": "^8.0.0",
     "lucide-react": "^0.303.0",
+    "node-record-lpcm16": "^1.0.1",
     "prismjs": "^1.29.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

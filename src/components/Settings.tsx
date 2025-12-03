@@ -236,6 +236,58 @@ const Settings = () => {
             </div>
           </div>
 
+          {/* AssemblyAI Configuration */}
+          <div className="border-t border-gray-700 pt-6">
+            <h3 className="text-lg font-medium mb-4">AssemblyAI Configuration</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">API Key</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={settings.assemblyAiApiKey || ''}
+                      onChange={(e) => updateSettings({ assemblyAiApiKey: e.target.value })}
+                      placeholder="Enter AssemblyAI API Key"
+                      className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500 pr-10"
+                    />
+                    <button
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                    >
+                      {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!settings.assemblyAiApiKey) return
+                      setIsTestingKey(true)
+                      try {
+                        const token = await window.electronAPI.createAssemblyAiToken(settings.assemblyAiApiKey)
+                        setKeyValid(!!token)
+                        alert('AssemblyAI API Key is valid!')
+                      } catch (error) {
+                        console.error(error)
+                        setKeyValid(false)
+                        alert('AssemblyAI API Key is invalid: ' + (error instanceof Error ? error.message : String(error)))
+                      } finally {
+                        setIsTestingKey(false)
+                      }
+                    }}
+                    disabled={!settings.assemblyAiApiKey || isTestingKey}
+                    className="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isTestingKey ? 'Testing...' : 'Test'}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  Required for real-time speech-to-text. Get a key from <a href="https://www.assemblyai.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">AssemblyAI</a>.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Window Settings */}
           <div className="border-t border-gray-700 pt-6">
             <h3 className="text-lg font-medium mb-4">Window Settings</h3>
@@ -300,11 +352,10 @@ const Settings = () => {
                 <label className="block text-sm font-medium mb-3">Audio Source</label>
                 <div className="space-y-2">
                   {/* Microphone Option */}
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${
-                    settings.audioInputSource === 'microphone'
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${settings.audioInputSource === 'microphone'
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-gray-700'
-                  }`}>
+                    }`}>
                     <input
                       type="radio"
                       name="audioSource"
@@ -321,11 +372,10 @@ const Settings = () => {
                   </label>
 
                   {/* System Audio Option */}
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                    settings.audioInputSource === 'system-audio'
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${settings.audioInputSource === 'system-audio'
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-gray-700'
-                  } ${!hasBlackhole ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800/50'}`}>
+                    } ${!hasBlackhole ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800/50'}`}>
                     <input
                       type="radio"
                       name="audioSource"
@@ -480,11 +530,10 @@ const Settings = () => {
                 <label className="block text-sm font-medium mb-3">Mode Selection</label>
                 <div className="space-y-2">
                   {/* Normal Mode */}
-                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${
-                    settings.responseMode === 'normal'
+                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${settings.responseMode === 'normal'
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-gray-700'
-                  }`}>
+                    }`}>
                     <input
                       type="radio"
                       name="responseMode"
@@ -502,19 +551,18 @@ const Settings = () => {
                         Record → Transcribe → Review → Send → Response
                       </div>
                       <div className="text-xs text-gray-500 mt-2">
-                        • Can review and edit before sending<br/>
-                        • Cost: ~$0.006/min audio + tokens<br/>
+                        • Can review and edit before sending<br />
+                        • Cost: ~$0.006/min audio + tokens<br />
                         • Works with all GPT models
                       </div>
                     </div>
                   </label>
 
                   {/* Realtime Mode */}
-                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all opacity-60 ${
-                    settings.responseMode === 'realtime'
+                  <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all opacity-60 ${settings.responseMode === 'realtime'
                       ? 'border-purple-500 bg-purple-500/10'
                       : 'border-gray-700 hover:bg-gray-800/30'
-                  }`}>
+                    }`}>
                     <input
                       type="radio"
                       name="responseMode"
@@ -533,8 +581,8 @@ const Settings = () => {
                         Speak → Instant text response via WebSocket
                       </div>
                       <div className="text-xs text-gray-500 mt-2">
-                        • 2x faster responses (~500ms)<br/>
-                        • Cost: ~$0.06/min audio + tokens<br/>
+                        • 2x faster responses (~500ms)<br />
+                        • Cost: ~$0.06/min audio + tokens<br />
                         • No review (auto-sends)
                       </div>
                     </div>
@@ -553,11 +601,10 @@ const Settings = () => {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => updateSettings({ theme: 'dark' })}
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    settings.theme === 'dark'
+                  className={`p-3 rounded-lg border-2 transition-all ${settings.theme === 'dark'
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-gray-700 hover:border-gray-600'
-                  }`}
+                    }`}
                 >
                   <div className="text-center">
                     <div className="text-sm font-medium">Dark</div>
@@ -565,11 +612,10 @@ const Settings = () => {
                 </button>
                 <button
                   onClick={() => updateSettings({ theme: 'light' })}
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    settings.theme === 'light'
+                  className={`p-3 rounded-lg border-2 transition-all ${settings.theme === 'light'
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-gray-700 hover:border-gray-600'
-                  }`}
+                    }`}
                 >
                   <div className="text-center">
                     <div className="text-sm font-medium">Light</div>
