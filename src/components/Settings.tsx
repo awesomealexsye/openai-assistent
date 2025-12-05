@@ -353,8 +353,8 @@ const Settings = () => {
                 <div className="space-y-2">
                   {/* Microphone Option */}
                   <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${settings.audioInputSource === 'microphone'
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-gray-700'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-gray-700'
                     }`}>
                     <input
                       type="radio"
@@ -373,8 +373,8 @@ const Settings = () => {
 
                   {/* System Audio Option */}
                   <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${settings.audioInputSource === 'system-audio'
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-gray-700'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-gray-700'
                     } ${!hasBlackhole ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800/50'}`}>
                     <input
                       type="radio"
@@ -531,8 +531,8 @@ const Settings = () => {
                 <div className="space-y-2">
                   {/* Normal Mode */}
                   <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-800/50 ${settings.responseMode === 'normal'
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-gray-700'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-gray-700'
                     }`}>
                     <input
                       type="radio"
@@ -560,8 +560,8 @@ const Settings = () => {
 
                   {/* Realtime Mode */}
                   <label className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all opacity-60 ${settings.responseMode === 'realtime'
-                      ? 'border-purple-500 bg-purple-500/10'
-                      : 'border-gray-700 hover:bg-gray-800/30'
+                    ? 'border-purple-500 bg-purple-500/10'
+                    : 'border-gray-700 hover:bg-gray-800/30'
                     }`}>
                     <input
                       type="radio"
@@ -592,6 +592,47 @@ const Settings = () => {
             </div>
           </div>
 
+          {/* Response Count Settings */}
+          <div className="border-t border-gray-700 pt-6">
+            <h3 className="text-lg font-medium mb-4">Response Configuration</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-3">Number of Responses</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((count) => (
+                    <button
+                      key={count}
+                      onClick={() => updateSettings({ responseCount: count as 1 | 2 | 3 | 4 })}
+                      className={`p-4 rounded-lg border-2 transition-all ${settings.responseCount === count
+                          ? 'border-blue-500 bg-blue-500/10'
+                          : 'border-gray-700 hover:border-gray-600'
+                        }`}
+                    >
+                      <div className="text-center">
+                        <div className="text-2xl font-bold mb-1">{count}</div>
+                        <div className="text-xs text-gray-400">
+                          {count === 1 ? 'Response' : 'Responses'}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {settings.responseCount > 1 && (
+                  <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <div className="flex items-start gap-2 text-sm text-yellow-400">
+                      <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                      <div className="text-xs">
+                        <strong>Cost Notice:</strong> Selecting {settings.responseCount} responses will multiply API costs by {settings.responseCount}x.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Theme Settings */}
           <div className="border-t border-gray-700 pt-6">
             <h3 className="text-lg font-medium mb-4">Appearance</h3>
@@ -602,8 +643,8 @@ const Settings = () => {
                 <button
                   onClick={() => updateSettings({ theme: 'dark' })}
                   className={`p-3 rounded-lg border-2 transition-all ${settings.theme === 'dark'
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-gray-700 hover:border-gray-600'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-gray-700 hover:border-gray-600'
                     }`}
                 >
                   <div className="text-center">
@@ -613,8 +654,8 @@ const Settings = () => {
                 <button
                   onClick={() => updateSettings({ theme: 'light' })}
                   className={`p-3 rounded-lg border-2 transition-all ${settings.theme === 'light'
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-gray-700 hover:border-gray-600'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-gray-700 hover:border-gray-600'
                     }`}
                 >
                   <div className="text-center">

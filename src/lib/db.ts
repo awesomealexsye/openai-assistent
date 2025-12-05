@@ -103,4 +103,5 @@ export const getDefaultSettings = (): Settings => ({
   silenceDuration: 400,
   showTranscriptionPreview: true,
   assemblyAiApiKey: '',
+  responseCount: 1,  // Default to single response
 })

@@ -104,3 +104,39 @@ export const testApiKey = async (apiKey: string): Promise<boolean> => {
     return false
   }
 }
+
+export const streamMultipleChatCompletions = async (
+  messages: Message[],
+  apiKey: string,
+  model: string,
+  baseTemperature: number,
+  maxTokens: number,
+  responseCount: number,
+  onChunk: (responseIndex: number, content: string) => void,
+  onComplete: (responseIndex: number) => void,
+  onError: (responseIndex: number, error: string) => void,
+  abortSignal?: AbortSignal
+): Promise<void> => {
+  const temperatureIncrement = 0.2
+  const promises: Promise<void>[] = []
+
+  for (let i = 0; i < responseCount; i++) {
+    const temperature = Math.min(2.0, baseTemperature + (i * temperatureIncrement))
+
+    const promise = streamChatCompletion(
+      messages,
+      apiKey,
+      model,
+      temperature,
+      maxTokens,
+      (chunk) => onChunk(i, chunk),
+      () => onComplete(i),
+      (error) => onError(i, error),
+      abortSignal
+    )
+
+    promises.push(promise)
+  }
+
+  await Promise.all(promises)
+}

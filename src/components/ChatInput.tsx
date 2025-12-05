@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store'
 import { Send, Mic, MicOff, Loader2, Zap, Square, Speaker, X, Activity } from 'lucide-react'
-import { streamChatCompletion } from '../services/openai'
+import { streamChatCompletion, streamMultipleChatCompletions } from '../services/openai'
 import { VoiceRecorder, transcribeAudio } from '../services/voice'
 import { RealtimeConnection } from '../services/realtime'
 import { AssemblyAiService } from '../services/assemblyai'
@@ -12,7 +12,9 @@ const ChatInput = () => {
   const {
     currentChat,
     addMessage,
+    addMessages,
     updateLastMessage,
+    updateMessageByIndex,
     settings,
     setInputMode,
     voiceState,
@@ -113,39 +115,89 @@ const ChatInput = () => {
     setInput('')
     setIsStreaming(true)
 
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      type: 'text',
+    // Check if we need multiple responses
+    if (settings.responseCount > 1) {
+      // Create placeholder messages for each response
+      const assistantMessages: Message[] = Array.from({ length: settings.responseCount }).map((_, index) => ({
+        id: `${Date.now()}-${index}`,
+        role: 'assistant' as const,
+        content: '',
+        timestamp: Date.now(),
+        type: 'text' as const,
+        responseIndex: index,
+        parentMessageId: userMessage.id,
+      }))
+
+      await addMessages(assistantMessages)
+
+      // Track streaming state for each response
+      const streamingStates = Array(settings.responseCount).fill(true)
+
+      abortControllerRef.current = new AbortController()
+
+      await streamMultipleChatCompletions(
+        [...currentChat.messages, userMessage],
+        settings.apiKey,
+        settings.model,
+        settings.temperature,
+        settings.maxTokens,
+        settings.responseCount,
+        (responseIndex, chunk) => {
+          updateMessageByIndex(userMessage.id, responseIndex, chunk)
+        },
+        (responseIndex) => {
+          streamingStates[responseIndex] = false
+          if (streamingStates.every(s => !s)) {
+            setIsStreaming(false)
+            abortControllerRef.current = null
+          }
+        },
+        (responseIndex, error) => {
+          console.error(`Response ${responseIndex} error:`, error)
+          streamingStates[responseIndex] = false
+          if (streamingStates.every(s => !s)) {
+            setIsStreaming(false)
+            abortControllerRef.current = null
+          }
+        },
+        abortControllerRef.current.signal
+      )
+    } else {
+      // Single response (original behavior)
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        type: 'text',
+      }
+
+      await addMessage(assistantMessage)
+
+      // Create new AbortController for this request
+      abortControllerRef.current = new AbortController()
+
+      await streamChatCompletion(
+        [...currentChat.messages, userMessage],
+        settings.apiKey,
+        settings.model,
+        settings.temperature,
+        settings.maxTokens,
+        (chunk) => {
+          updateLastMessage(chunk)
+        },
+        () => {
+          setIsStreaming(false)
+          abortControllerRef.current = null
+        },
+        (error) => {
+          console.error('Streaming error:', error)
+          setIsStreaming(false)
+          abortControllerRef.current = null
+        },
+        abortControllerRef.current.signal
+      )
     }
-
-    await addMessage(assistantMessage)
-
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController()
-
-    await streamChatCompletion(
-      [...currentChat.messages, userMessage],
-      settings.apiKey,
-      settings.model,
-      settings.temperature,
-      settings.maxTokens,
-      (chunk) => {
-        updateLastMessage(chunk)
-      },
-      () => {
-        setIsStreaming(false)
-        abortControllerRef.current = null
-      },
-      (error) => {
-        console.error('Streaming error:', error)
-        setIsStreaming(false)
-        abortControllerRef.current = null
-      },
-      abortControllerRef.current.signal
-    )
   }
 
   const handleStopStreaming = () => {

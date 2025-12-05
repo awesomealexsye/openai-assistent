@@ -4,6 +4,8 @@ export interface Message {
   content: string
   timestamp: number
   type?: 'text' | 'voice'
+  responseIndex?: number  // For tracking which response this is (0-3)
+  parentMessageId?: string  // Link multiple responses to same user message
 }
 
 export interface Chat {
@@ -43,6 +45,7 @@ export interface Settings {
   silenceDuration: number
   showTranscriptionPreview: boolean
   assemblyAiApiKey: string
+  responseCount: 1 | 2 | 3 | 4  // Number of responses to generate
 }
 
 export interface CodeBlock {

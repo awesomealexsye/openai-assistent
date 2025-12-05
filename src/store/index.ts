@@ -35,7 +35,9 @@ interface AppState {
   selectChat: (chatId: string) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>
   addMessage: (message: Message) => Promise<void>
+  addMessages: (messages: Message[]) => Promise<void>
   updateLastMessage: (content: string) => void
+  updateMessageByIndex: (parentId: string, responseIndex: number, content: string) => void
   loadSettings: () => Promise<void>
   updateSettings: (settings: Partial<Settings>) => Promise<void>
   toggleSettings: () => void
@@ -131,6 +133,24 @@ export const useStore = create<AppState>((set, get) => ({
     await get().loadChats()
   },
 
+  addMessages: async (messages: Message[]) => {
+    const state = get()
+    if (!state.currentChat) return
+
+    const updatedChat: Chat = {
+      ...state.currentChat,
+      messages: [...state.currentChat.messages, ...messages],
+      updatedAt: Date.now(),
+      title: state.currentChat.messages.length === 0
+        ? messages[0]?.content.slice(0, 50)
+        : state.currentChat.title,
+    }
+
+    await saveChat(updatedChat)
+    set({ currentChat: updatedChat })
+    await get().loadChats()
+  },
+
   updateLastMessage: (content: string) => {
     const state = get()
     if (!state.currentChat) return
@@ -140,6 +160,26 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (lastMessage) {
       lastMessage.content += content
+      set({
+        currentChat: {
+          ...state.currentChat,
+          messages,
+        },
+      })
+    }
+  },
+
+  updateMessageByIndex: (parentId: string, responseIndex: number, content: string) => {
+    const state = get()
+    if (!state.currentChat) return
+
+    const messages = [...state.currentChat.messages]
+    const messageIndex = messages.findIndex(
+      m => m.parentMessageId === parentId && m.responseIndex === responseIndex
+    )
+
+    if (messageIndex !== -1) {
+      messages[messageIndex].content += content
       set({
         currentChat: {
           ...state.currentChat,
