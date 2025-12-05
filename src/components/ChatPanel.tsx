@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { useStore } from '../store'
 import { MessageSquare } from 'lucide-react'
 import MessageList from './MessageList'
@@ -8,9 +8,10 @@ const ChatPanel = () => {
   const { currentChat, currentChatId, createNewChat } = useStore()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [currentChat?.messages])
+  // Disabled auto-scroll - user wants manual scroll control
+  // useEffect(() => {
+  //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  // }, [currentChat?.messages])
 
   if (!currentChatId) {
     return (

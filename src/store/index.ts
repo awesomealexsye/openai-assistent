@@ -156,10 +156,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (!state.currentChat) return
 
     const messages = [...state.currentChat.messages]
-    const lastMessage = messages[messages.length - 1]
+    const lastMessageIndex = messages.length - 1
 
-    if (lastMessage) {
-      lastMessage.content += content
+    if (lastMessageIndex >= 0) {
+      // Create a new message object instead of mutating
+      messages[lastMessageIndex] = {
+        ...messages[lastMessageIndex],
+        content: messages[lastMessageIndex].content + content
+      }
+
       set({
         currentChat: {
           ...state.currentChat,
@@ -169,17 +174,22 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  updateMessageByIndex: (parentId: string, responseIndex: number, content: string) => {
+  updateMessageByIndex: (parentMessageId: string, responseIndex: number, content: string) => {
     const state = get()
     if (!state.currentChat) return
 
     const messages = [...state.currentChat.messages]
     const messageIndex = messages.findIndex(
-      m => m.parentMessageId === parentId && m.responseIndex === responseIndex
+      m => m.parentMessageId === parentMessageId && m.responseIndex === responseIndex
     )
 
     if (messageIndex !== -1) {
-      messages[messageIndex].content += content
+      // Create a new message object instead of mutating
+      messages[messageIndex] = {
+        ...messages[messageIndex],
+        content: messages[messageIndex].content + content
+      }
+
       set({
         currentChat: {
           ...state.currentChat,

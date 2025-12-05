@@ -81,7 +81,11 @@ const ResponseGrid = ({ responses, responseCount, isStreaming }: ResponseGridPro
     return (
         <div className={`grid ${getGridClass()} gap-4`}>
             {Array.from({ length: responseCount }).map((_, index) => {
-                const response = responses.find(r => r.responseIndex === index)
+                // For single response (responseCount=1), find response without responseIndex
+                // For multiple responses, find by responseIndex
+                const response = responseCount === 1
+                    ? responses.find(r => r.responseIndex === undefined || r.responseIndex === index)
+                    : responses.find(r => r.responseIndex === index)
                 const streaming = isStreaming[index]
 
                 return (
