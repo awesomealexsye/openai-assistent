@@ -10,7 +10,6 @@ import { detectBlackholeDevice } from '../lib/audioDevices'
 
 const ChatInput = () => {
   const {
-    currentChat,
     addMessage,
     addMessages,
     updateLastMessage,
@@ -22,7 +21,6 @@ const ChatInput = () => {
     pendingAttachments,
     addPendingAttachment,
     removePendingAttachment,
-    clearPendingAttachments,
   } = useStore()
 
   const [input, setInput] = useState('')
@@ -65,10 +63,13 @@ const ChatInput = () => {
 
         addPendingAttachment(attachment)
 
-        // Focus textarea after adding screenshot
+        // Auto-submit the screenshot immediately (stealth mode)
+        // Use store's getState() to bypass React closure and get fresh state
         setTimeout(() => {
-          textareaRef.current?.focus()
-        }, 100)
+          const currentPendingAttachments = useStore.getState().pendingAttachments
+          console.log('Auto-submitting screenshot, pending attachments:', currentPendingAttachments.length)
+          handleSendMessage(input)
+        }, 200)
       } else {
         console.error('Screenshot capture failed:', result.error)
       }
@@ -146,21 +147,24 @@ const ChatInput = () => {
   }, [input])
 
   const handleSendMessage = async (messageText: string) => {
+    // Get fresh state from store to avoid closure issues
+    const { pendingAttachments: currentAttachments, currentChat: chat, settings: currentSettings, clearPendingAttachments: clearAttachments } = useStore.getState()
+
     // Allow sending with just attachments (no text required if images attached)
-    if ((!messageText.trim() && pendingAttachments.length === 0) || !currentChat || !settings.apiKey) return
+    if ((!messageText.trim() && currentAttachments.length === 0) || !chat || !currentSettings.apiKey) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: messageText.trim() || (pendingAttachments.length > 0 ? 'What do you see in this image?' : ''),
+      content: messageText.trim() || (currentAttachments.length > 0 ? 'If you find any questions in the given image, please let me know the answers' : ''),
       timestamp: Date.now(),
-      type: pendingAttachments.length > 0 ? 'image' : 'text',
-      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined,
+      type: currentAttachments.length > 0 ? 'image' : 'text',
+      attachments: currentAttachments.length > 0 ? [...currentAttachments] : undefined,
     }
 
     await addMessage(userMessage)
     setInput('')
-    clearPendingAttachments() // Clear attachments after sending
+    clearAttachments() // Clear attachments after sending
     setIsStreaming(true)
 
     // Check if we need multiple responses
@@ -184,7 +188,7 @@ const ChatInput = () => {
       abortControllerRef.current = new AbortController()
 
       await streamMultipleChatCompletions(
-        [...currentChat.messages, userMessage],
+        [...chat.messages, userMessage],
         settings.apiKey,
         settings.model,
         settings.temperature,
@@ -226,7 +230,7 @@ const ChatInput = () => {
       abortControllerRef.current = new AbortController()
 
       await streamChatCompletion(
-        [...currentChat.messages, userMessage],
+        [...chat.messages, userMessage],
         settings.apiKey,
         settings.model,
         settings.temperature,
@@ -726,13 +730,12 @@ const ChatInput = () => {
             <button
               onClick={captureScreenshot}
               disabled={isCapturingScreenshot}
-              className={`p-3 rounded-xl transition-all flex-shrink-0 ${
-                isCapturingScreenshot
-                  ? 'bg-cyan-600 animate-pulse'
-                  : pendingAttachments.length > 0
-                    ? 'bg-cyan-600 hover:bg-cyan-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`p-3 rounded-xl transition-all flex-shrink-0 ${isCapturingScreenshot
+                ? 'bg-cyan-600 animate-pulse'
+                : pendingAttachments.length > 0
+                  ? 'bg-cyan-600 hover:bg-cyan-700'
+                  : 'bg-gray-700 hover:bg-gray-600'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               title="Capture screenshot (⌘+Shift+S)"
             >
               {isCapturingScreenshot ? (

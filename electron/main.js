@@ -86,15 +86,27 @@ app.whenReady().then(() => {
     createWindow()
 
     // Register global shortcut for screenshot (Cmd+Shift+S on macOS, Ctrl+Shift+S on Windows/Linux)
-    const shortcut = process.platform === 'darwin' ? 'Command+Shift+S' : 'Control+Shift+S'
-    const registered = globalShortcut.register(shortcut, () => {
+    const screenshotShortcut = process.platform === 'darwin' ? 'Command+Shift+S' : 'Control+Shift+S'
+    const screenshotRegistered = globalShortcut.register(screenshotShortcut, () => {
         if (mainWindow) {
             mainWindow.webContents.send('screenshot-shortcut-triggered')
         }
     })
 
-    if (!registered) {
+    if (!screenshotRegistered) {
         console.warn('Screenshot shortcut registration failed')
+    }
+
+    // Register global shortcut for toggling click-through mode (Cmd+Shift+C on macOS, Ctrl+Shift+C on Windows/Linux)
+    const clickThroughShortcut = process.platform === 'darwin' ? 'Command+Shift+C' : 'Control+Shift+C'
+    const clickThroughRegistered = globalShortcut.register(clickThroughShortcut, () => {
+        if (mainWindow) {
+            mainWindow.webContents.send('click-through-toggle')
+        }
+    })
+
+    if (!clickThroughRegistered) {
+        console.warn('Click-through shortcut registration failed')
     }
 
     app.on('activate', () => {
@@ -229,4 +241,76 @@ ipcMain.handle('create-assemblyai-token', async (event, apiKey) => {
 // Screenshot capture handler
 ipcMain.handle('capture-screenshot', async () => {
     return await captureScreen()
+})
+
+// Exam Mode handler - stealth mode for online tests
+let examModeEnabled = false
+let clickThroughEnabled = false
+
+ipcMain.handle('set-exam-mode', async (event, enabled) => {
+    if (!mainWindow) return false
+
+    examModeEnabled = enabled
+
+    if (enabled) {
+        // Set window to highest level - appears above all windows
+        mainWindow.setAlwaysOnTop(true, 'screen-saver', 1)
+
+        // Make visible on all workspaces/spaces (macOS)
+        mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+        // Skip taskbar/dock to be less detectable
+        mainWindow.setSkipTaskbar(true)
+
+        // On macOS, hide from dock for extra stealth
+        if (process.platform === 'darwin') {
+            app.dock.hide()
+        }
+
+        // Enable content protection
+        mainWindow.setContentProtection(true)
+
+        console.log('Exam mode enabled - window is always on top, hidden from dock')
+    } else {
+        // Restore normal window behavior
+        mainWindow.setAlwaysOnTop(false)
+        mainWindow.setVisibleOnAllWorkspaces(false)
+        mainWindow.setSkipTaskbar(false)
+
+        // Disable click-through if it was enabled
+        if (clickThroughEnabled) {
+            mainWindow.setIgnoreMouseEvents(false)
+            clickThroughEnabled = false
+        }
+
+        // Show dock icon again on macOS
+        if (process.platform === 'darwin') {
+            app.dock.show()
+        }
+
+        console.log('Exam mode disabled - window behavior restored')
+    }
+
+    return true
+})
+
+// Click-through mode - mouse clicks pass through to Chrome
+// This is the KEY feature that prevents Chrome from detecting tab switch
+ipcMain.handle('set-click-through', async (event, enabled) => {
+    if (!mainWindow) return false
+
+    clickThroughEnabled = enabled
+
+    if (enabled) {
+        // Enable click-through: mouse events pass through to windows behind
+        // forward: true means mouse move events are still tracked (for cursor changes)
+        mainWindow.setIgnoreMouseEvents(true, { forward: true })
+        console.log('Click-through enabled - clicks pass to Chrome')
+    } else {
+        // Disable click-through: normal mouse interaction
+        mainWindow.setIgnoreMouseEvents(false)
+        console.log('Click-through disabled - normal interaction')
+    }
+
+    return true
 })

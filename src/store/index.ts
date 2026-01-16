@@ -218,6 +218,10 @@ export const useStore = create<AppState>((set, get) => ({
         await window.electronAPI.setAlwaysOnTop(settings.alwaysOnTop)
         await window.electronAPI.setOpacity(settings.opacity)
         await window.electronAPI.setContentProtection(settings.screenProtection)
+        // Apply exam mode if enabled
+        if (settings.examMode) {
+          await window.electronAPI.setExamMode(true)
+        }
       }
 
       // Apply theme
@@ -245,6 +249,9 @@ export const useStore = create<AppState>((set, get) => ({
       }
       if ('screenProtection' in newSettings) {
         await window.electronAPI.setContentProtection(newSettings.screenProtection!)
+      }
+      if ('examMode' in newSettings) {
+        await window.electronAPI.setExamMode(newSettings.examMode!)
       }
     }
 

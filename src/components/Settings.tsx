@@ -325,6 +325,52 @@ const Settings = () => {
                 </label>
               </div>
 
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium flex items-center gap-2">
+                    Exam Mode
+                    <span className="px-2 py-0.5 bg-purple-600/30 text-purple-300 text-xs rounded-full">Stealth</span>
+                  </p>
+                  <p className="text-sm text-gray-400">Window stays on top, hidden from Dock - use with Click-Through for full stealth</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.examMode}
+                    onChange={(e) => updateSettings({ examMode: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              {settings.examMode && (
+                <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg text-sm">
+                  <p className="font-medium mb-2 text-purple-300">🎓 Exam Mode Active</p>
+                  <ul className="list-disc list-inside text-xs space-y-1 text-gray-400 mb-3">
+                    <li>Window stays on top at highest level</li>
+                    <li>Hidden from Dock/Taskbar</li>
+                    <li>Visible on all Spaces/Desktops</li>
+                    <li>Use <kbd className="px-1 py-0.5 bg-gray-700 rounded text-gray-300">⌘+Shift+S</kbd> to capture screenshots</li>
+                  </ul>
+
+                  <div className="pt-3 border-t border-purple-500/30">
+                    <p className="font-medium text-cyan-300 flex items-center gap-2 mb-2">
+                      🔒 How to Use Stealth Mode
+                    </p>
+                    <ol className="text-xs text-gray-400 space-y-2 list-decimal list-inside">
+                      <li><strong className="text-white">First:</strong> Click on Chrome to make sure it's focused</li>
+                      <li><strong className="text-white">Then:</strong> Press <kbd className="px-1 py-0.5 bg-gray-700 rounded text-cyan-300">⌘+Shift+C</kbd> to enable Click-Through</li>
+                      <li><strong className="text-white">Now:</strong> This app is "invisible" to Chrome - clicks pass through!</li>
+                      <li><strong className="text-white">To interact:</strong> Press <kbd className="px-1 py-0.5 bg-gray-700 rounded text-cyan-300">⌘+Shift+C</kbd> again</li>
+                    </ol>
+                    <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-300">
+                      <strong>Important:</strong> You must use the keyboard shortcut (<kbd className="px-1 py-0.5 bg-gray-700 rounded">⌘+Shift+C</kbd>) to toggle. Clicking any button here will trigger Chrome's blur detection!
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium mb-2">
                   Window Opacity: {Math.round(settings.opacity * 100)}%

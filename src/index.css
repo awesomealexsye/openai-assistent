@@ -87,17 +87,61 @@ code[class*="language-"] {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-/* Force default cursor everywhere */
+/* Allow specific cursor types for interactive elements */
 *,
 *::before,
 *::after,
 body,
-input,
+input:not([type="range"]),
 textarea,
 select,
-button,
+button:not(.cursor-col-resize),
 a {
   cursor: default !important;
+}
+
+/* Allow resize cursor for drag handles */
+.cursor-col-resize,
+.cursor-col-resize * {
+  cursor: col-resize !important;
+}
+
+/* Range slider styling */
+input[type="range"].slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="range"].slider-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer !important;
+  border: 2px solid #1e40af;
+  transition: all 0.2s ease;
+}
+
+input[type="range"].slider-thumb::-webkit-slider-thumb:hover {
+  background: #60a5fa;
+  transform: scale(1.1);
+}
+
+input[type="range"].slider-thumb::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer !important;
+  border: 2px solid #1e40af;
+  transition: all 0.2s ease;
+}
+
+input[type="range"].slider-thumb::-moz-range-thumb:hover {
+  background: #60a5fa;
+  transform: scale(1.1);
 }
 
 /* Electron window drag regions */

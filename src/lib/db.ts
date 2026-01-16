@@ -104,4 +104,5 @@ export const getDefaultSettings = (): Settings => ({
   showTranscriptionPreview: true,
   assemblyAiApiKey: '',
   responseCount: 1,  // Default to single response
+  examMode: false,  // Stealth mode disabled by default
 })

@@ -56,6 +56,7 @@ export interface Settings {
   showTranscriptionPreview: boolean
   assemblyAiApiKey: string
   responseCount: 1 | 2 | 3 | 4  // Number of responses to generate
+  examMode: boolean  // Stealth mode - window doesn't steal focus from Chrome
 }
 
 export interface CodeBlock {
@@ -101,6 +102,10 @@ export interface ElectronAPI {
   captureScreenshot: () => Promise<ScreenshotResult>
   onScreenshotShortcut: (callback: () => void) => void
   removeScreenshotShortcutListener: () => void
+  setExamMode: (enabled: boolean) => Promise<boolean>
+  setClickThrough: (enabled: boolean) => Promise<boolean>
+  onClickThroughToggle: (callback: () => void) => void
+  removeClickThroughToggleListener: () => void
 }
 
 declare global {

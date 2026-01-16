@@ -1,7 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
-// Store the screenshot shortcut callback for cleanup
+// Store callbacks for cleanup
 let screenshotShortcutCallback = null
+let clickThroughToggleCallback = null
 
 contextBridge.exposeInMainWorld('electronAPI', {
     setAlwaysOnTop: (flag) => ipcRenderer.invoke('set-always-on-top', flag),
@@ -31,6 +32,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
         if (screenshotShortcutCallback) {
             ipcRenderer.removeListener('screenshot-shortcut-triggered', screenshotShortcutCallback)
             screenshotShortcutCallback = null
+        }
+    },
+
+    // Exam Mode API - stealth mode for tests
+    setExamMode: (enabled) => ipcRenderer.invoke('set-exam-mode', enabled),
+
+    // Click-through mode - clicks pass through to Chrome (true stealth)
+    setClickThrough: (enabled) => ipcRenderer.invoke('set-click-through', enabled),
+
+    // Click-through toggle listener (for keyboard shortcut)
+    onClickThroughToggle: (callback) => {
+        if (clickThroughToggleCallback) {
+            ipcRenderer.removeListener('click-through-toggle', clickThroughToggleCallback)
+        }
+        clickThroughToggleCallback = callback
+        ipcRenderer.on('click-through-toggle', callback)
+    },
+    removeClickThroughToggleListener: () => {
+        if (clickThroughToggleCallback) {
+            ipcRenderer.removeListener('click-through-toggle', clickThroughToggleCallback)
+            clickThroughToggleCallback = null
         }
     },
 })
