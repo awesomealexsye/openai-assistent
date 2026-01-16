@@ -1,6 +1,6 @@
 {
-  "name": "arbaz-macbook",
-  "version": "2.0.0",
+  "name": "arbaz-macbook-real",
+  "version": "3.0.0",
   "description": "Arbaz Macbook - AI Assistant for macOS",
   "main": "electron/main.js",
   "author": "Arbaz Khan",
@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@ricky0123/vad-web": "^0.0.29",
-    "assemblyai": "^4.19.0",
     "date-fns": "^3.0.6",
     "framer-motion": "^10.18.0",
     "idb": "^8.0.0",
@@ -24,6 +23,8 @@
     "prismjs": "^1.29.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
@@ -35,6 +36,7 @@
     "@typescript-eslint/parser": "^6.17.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
+    "baseline-browser-mapping": "^2.9.14",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
     "electron": "^28.3.3",

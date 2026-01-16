@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store'
-import { Send, Mic, MicOff, Loader2, Zap, Square, Speaker, X, Activity } from 'lucide-react'
+import { Send, Mic, MicOff, Loader2, Zap, Square, Speaker, X } from 'lucide-react'
 import { streamChatCompletion, streamMultipleChatCompletions } from '../services/openai'
 import { VoiceRecorder, transcribeAudio } from '../services/voice'
 import { RealtimeConnection } from '../services/realtime'
-import { AssemblyAiService } from '../services/assemblyai'
 import { Message } from '../types'
 import { detectBlackholeDevice } from '../lib/audioDevices'
 
@@ -26,13 +25,11 @@ const ChatInput = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const voiceRecorderRef = useRef<VoiceRecorder | null>(null)
   const realtimeConnectionRef = useRef<RealtimeConnection | null>(null)
-  const assemblyAiServiceRef = useRef<AssemblyAiService | null>(null)
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false)
-  const [isAssemblyAiRecording, setIsAssemblyAiRecording] = useState(false)
   const [realtimeResponseBuffer, setRealtimeResponseBuffer] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
   const [hasBlackhole, setHasBlackhole] = useState(false)
-  const [activeAudioSource, setActiveAudioSource] = useState<'microphone' | 'system-audio' | 'assembly-ai' | null>(null)
+  const [activeAudioSource, setActiveAudioSource] = useState<'microphone' | 'system-audio' | null>(null)
 
   // Check and request microphone permission
   const checkMicrophonePermission = async (): Promise<boolean> => {
@@ -101,7 +98,23 @@ const ChatInput = () => {
   }, [input])
 
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim() || !currentChat || !settings.apiKey) return
+    if (!messageText.trim() || !settings.apiKey) {
+      if (!settings.apiKey) {
+        alert('Please set your OpenAI API key in settings first')
+      }
+      return
+    }
+
+    // Auto-create chat if none selected
+    if (!currentChat) {
+      await useStore.getState().createNewChat()
+    }
+
+    // Get fresh state after chat creation
+    const store = useStore.getState()
+    const activeChat = store.currentChat
+
+    if (!activeChat) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -136,7 +149,7 @@ const ChatInput = () => {
       abortControllerRef.current = new AbortController()
 
       await streamMultipleChatCompletions(
-        [...currentChat.messages, userMessage],
+        [...activeChat.messages, userMessage],
         settings.apiKey,
         settings.model,
         settings.temperature,
@@ -178,7 +191,7 @@ const ChatInput = () => {
       abortControllerRef.current = new AbortController()
 
       await streamChatCompletion(
-        [...currentChat.messages, userMessage],
+        [...activeChat.messages, userMessage],
         settings.apiKey,
         settings.model,
         settings.temperature,
@@ -232,12 +245,6 @@ const ChatInput = () => {
         setRealtimeResponseBuffer('')
       }
 
-      // Stop AssemblyAI if active
-      if (assemblyAiServiceRef.current && isAssemblyAiRecording) {
-        await assemblyAiServiceRef.current.stopRecording()
-        setIsAssemblyAiRecording(false)
-      }
-
       // Reset all states
       setVoiceState({ isRecording: false, isProcessing: false, error: null })
       setActiveAudioSource(null)
@@ -246,7 +253,6 @@ const ChatInput = () => {
       console.error('Error canceling voice recording:', error)
       setVoiceState({ isRecording: false, isProcessing: false, error: null })
       setActiveAudioSource(null)
-      setIsAssemblyAiRecording(false)
     }
   }
 
@@ -270,95 +276,6 @@ const ChatInput = () => {
       await handleRealtimeVoiceToggle(audioSource)
     } else {
       await handleNormalVoiceToggle(audioSource)
-    }
-  }
-
-  const handleAssemblyAiToggle = async () => {
-    if (!settings.assemblyAiApiKey) {
-      alert('Please set your AssemblyAI API key in settings first')
-      return
-    }
-
-    if (isAssemblyAiRecording) {
-      // Stop recording
-      try {
-        if (assemblyAiServiceRef.current) {
-          await assemblyAiServiceRef.current.stopRecording()
-        }
-        setIsAssemblyAiRecording(false)
-        setActiveAudioSource(null)
-        setVoiceState({ isRecording: false })
-      } catch (error) {
-        console.error('Error stopping AssemblyAI:', error)
-      }
-    } else {
-      // Start recording
-      if (voiceState.isRecording) {
-        alert('Please stop other recording first')
-        return
-      }
-
-      // Prevent multiple clicks/connections
-      if (voiceState.isProcessing) return
-
-      const hasPermission = await checkMicrophonePermission()
-      if (!hasPermission) return
-
-      try {
-        setVoiceState({ isProcessing: true }) // Indicate we are setting up
-        setActiveAudioSource('assembly-ai')
-
-        // Ensure clean state
-        if (assemblyAiServiceRef.current) {
-          await assemblyAiServiceRef.current.stopRecording()
-          assemblyAiServiceRef.current = null
-        }
-
-        assemblyAiServiceRef.current = new AssemblyAiService(settings.assemblyAiApiKey)
-
-        // Connect to AssemblyAI
-        await assemblyAiServiceRef.current.connect()
-
-        // Setup callbacks
-        assemblyAiServiceRef.current.onTranscript((text) => {
-          setInput((prev) => {
-            const newText = prev ? `${prev} ${text}` : text
-            return newText
-          })
-        })
-
-        assemblyAiServiceRef.current.onError((error) => {
-          console.error('AssemblyAI Error Callback:', error)
-          setVoiceState({ error })
-          setIsAssemblyAiRecording(false)
-          setActiveAudioSource(null)
-          // Cleanup
-          if (assemblyAiServiceRef.current) {
-            assemblyAiServiceRef.current.stopRecording().catch(console.error)
-          }
-        })
-
-        // Determine device ID based on settings
-        const deviceId = settings.audioInputSource === 'system-audio'
-          ? settings.selectedAudioDeviceId
-          : undefined
-
-        // Start recording
-        await assemblyAiServiceRef.current.startRecording(deviceId)
-
-        setIsAssemblyAiRecording(true)
-        setVoiceState({ isRecording: true, isProcessing: false })
-
-      } catch (error) {
-        console.error('Failed to start AssemblyAI:', error)
-        setVoiceState({ error: error instanceof Error ? error.message : 'Failed to start AssemblyAI', isRecording: false, isProcessing: false })
-        setIsAssemblyAiRecording(false)
-        setActiveAudioSource(null)
-        if (assemblyAiServiceRef.current) {
-          assemblyAiServiceRef.current.stopRecording().catch(console.error)
-          assemblyAiServiceRef.current = null
-        }
-      }
     }
   }
 
@@ -549,9 +466,6 @@ const ChatInput = () => {
       if (realtimeConnectionRef.current) {
         realtimeConnectionRef.current.disconnect()
       }
-      if (assemblyAiServiceRef.current) {
-        assemblyAiServiceRef.current.stopRecording()
-      }
     }
   }, [])
 
@@ -611,23 +525,6 @@ const ChatInput = () => {
               )}
             </button>
 
-            {/* AssemblyAI Button */}
-            <button
-              onClick={handleAssemblyAiToggle}
-              disabled={voiceState.isProcessing || (voiceState.isRecording && activeAudioSource !== 'assembly-ai')}
-              className={`p-3 rounded-xl transition-all flex-shrink-0 ${isAssemblyAiRecording
-                ? 'bg-orange-600 hover:bg-orange-700 animate-pulse-slow'
-                : 'bg-gray-700 hover:bg-gray-600'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              title="Real-time Transcription (AssemblyAI)"
-            >
-              {isAssemblyAiRecording ? (
-                <Activity size={20} className="animate-pulse" />
-              ) : (
-                <Activity size={20} />
-              )}
-            </button>
-
             {/* Cancel Voice Recording Button - Only visible when recording or processing */}
             {(voiceState.isRecording || voiceState.isProcessing) && (
               <button
@@ -647,14 +544,12 @@ const ChatInput = () => {
               onKeyDown={handleKeyDown}
               placeholder={
                 voiceState.isRecording
-                  ? isAssemblyAiRecording
-                    ? 'Listening with AssemblyAI...'
-                    : 'Recording... Click the mic to stop'
+                  ? 'Recording... Click the mic to stop'
                   : isStreaming
                     ? 'Streaming response... You can type your next question'
                     : 'Type a message or use voice input...'
               }
-              disabled={voiceState.isRecording && !isAssemblyAiRecording}
+              disabled={voiceState.isRecording}
               className="flex-1 bg-transparent border-none outline-none resize-none max-h-32 py-3 px-2 disabled:opacity-50"
               rows={1}
             />
@@ -677,11 +572,9 @@ const ChatInput = () => {
           <div className="px-4 pb-3 flex items-center justify-between text-xs text-gray-500">
             <span>
               {voiceState.isRecording
-                ? isAssemblyAiRecording
-                  ? `🟠 AssemblyAI Live Transcription${settings.audioInputSource === 'system-audio' ? ' (System Audio)' : ' (Microphone)'}`
-                  : settings.responseMode === 'realtime'
-                    ? `🔴 LIVE - Realtime streaming active${activeAudioSource === 'system-audio' ? ' (System Audio)' : ' (Microphone)'}`
-                    : `Voice recording active${activeAudioSource === 'system-audio' ? ' (System Audio)' : ' (Microphone)'}`
+                ? settings.responseMode === 'realtime'
+                  ? `🔴 LIVE - Realtime streaming active${activeAudioSource === 'system-audio' ? ' (System Audio)' : ' (Microphone)'}`
+                  : `Voice recording active${activeAudioSource === 'system-audio' ? ' (System Audio)' : ' (Microphone)'}`
                 : 'Press Shift+Enter for new line'}
             </span>
             <div className="flex items-center gap-2">

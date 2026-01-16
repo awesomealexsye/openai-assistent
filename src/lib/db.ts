@@ -102,6 +102,5 @@ export const getDefaultSettings = (): Settings => ({
   vadSensitivity: 0.8,
   silenceDuration: 400,
   showTranscriptionPreview: true,
-  assemblyAiApiKey: '',
   responseCount: 1,  // Default to single response
 })

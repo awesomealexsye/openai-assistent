@@ -5,6 +5,10 @@ interface RealtimeConfig {
   onTextResponse: (text: string) => void
   onError: (error: string) => void
   onConnectionChange: (connected: boolean) => void
+  onTranscription?: (text: string) => void
+  onUserInput?: (text: string) => void
+  onTurnComplete?: () => void
+  onSpeechStarted?: () => void
 }
 
 class RealtimeConnection {
@@ -12,6 +16,7 @@ class RealtimeConnection {
   private audioContext: AudioContext | null = null
   private mediaStream: MediaStream | null = null
   private audioProcessor: ScriptProcessorNode | null = null
+  private audioWorkletNode: AudioWorkletNode | null = null
   private config: RealtimeConfig
   private isConnected = false
   private sessionId: string | null = null
@@ -81,11 +86,9 @@ class RealtimeConnection {
     const sessionConfig = {
       type: 'session.update',
       session: {
-        modalities: ['text', 'audio'],
+        modalities: ['text'], // Text-only mode - no audio output
         instructions: 'You are a helpful AI assistant. Respond to the user\'s questions and provide assistance.',
-        voice: 'alloy',
         input_audio_format: 'pcm16',
-        output_audio_format: 'pcm16',
         input_audio_transcription: {
           model: 'whisper-1'
         },
@@ -118,6 +121,13 @@ class RealtimeConnection {
             console.log('Session created:', this.sessionId)
             break
 
+          case 'conversation.item.input_audio_transcription.completed':
+            console.log('User input transcribed:', message.transcript)
+            if (message.transcript && this.config.onUserInput) {
+              this.config.onUserInput(message.transcript)
+            }
+            break
+
           case 'session.updated':
             console.log('Session updated')
             break
@@ -129,37 +139,55 @@ class RealtimeConnection {
           case 'response.text.delta':
             // Text chunk from assistant
             if (message.delta) {
+              console.log('📝 Received text delta:', message.delta)
               this.config.onTextResponse(message.delta)
             }
             break
 
           case 'response.text.done':
             // Final text response
-            if (message.text) {
-              this.config.onTextResponse(message.text)
+            console.log('✅ Text response complete')
+            // Don't send duplicate full text if we already streamed deltas
+            break
+
+          case 'response.done':
+            console.log('Response turn complete')
+            if (this.config.onTurnComplete) {
+              this.config.onTurnComplete()
             }
             break
 
           case 'response.audio_transcript.delta':
             // Text transcription of audio response
             if (message.delta) {
-              this.config.onTextResponse(message.delta)
+              if (this.config.onTranscription) {
+                this.config.onTranscription(message.delta)
+              } else {
+                this.config.onTextResponse(message.delta)
+              }
             }
             break
 
           case 'response.audio_transcript.done':
             // Final transcription
             if (message.transcript) {
-              this.config.onTextResponse(message.transcript)
+              if (this.config.onTranscription) {
+                this.config.onTranscription(message.transcript)
+              } else {
+                this.config.onTextResponse(message.transcript)
+              }
             }
             break
 
           case 'input_audio_buffer.speech_started':
-            console.log('Speech detected')
+            console.log('🎤 Speech detected - user is speaking!')
+            if (this.config.onSpeechStarted) {
+              this.config.onSpeechStarted()
+            }
             break
 
           case 'input_audio_buffer.speech_stopped':
-            console.log('Speech stopped')
+            console.log('🛑 Speech stopped - processing...')
             break
 
           case 'response.done':
@@ -180,51 +208,82 @@ class RealtimeConnection {
     }
   }
 
+
+
+
   async startAudioStreaming(deviceId?: string): Promise<void> {
+    if (this.mediaStream) return
+
     try {
       // Get audio stream from microphone or selected device
       const constraints: MediaStreamConstraints = {
         audio: deviceId ? { deviceId: { exact: deviceId } } : true
       }
 
+      console.log('Requesting microphone access...', constraints)
       this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
+      console.log('Microphone access granted')
 
-      // Create audio context
-      this.audioContext = new AudioContext({ sampleRate: 24000 })
-      const source = this.audioContext.createMediaStreamSource(this.mediaStream)
-
-      // Create script processor for audio data
-      const bufferSize = 4096
-      this.audioProcessor = this.audioContext.createScriptProcessor(bufferSize, 1, 1)
-
-      this.audioProcessor.onaudioprocess = (event) => {
-        try {
-          if (!this.isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            return
-          }
-
-          const inputData = event.inputBuffer.getChannelData(0)
-          const pcm16Data = this.convertToPCM16(inputData)
-
-          // Send audio data to WebSocket
-          const audioMessage = {
-            type: 'input_audio_buffer.append',
-            audio: this.arrayBufferToBase64(pcm16Data)
-          }
-
-          this.ws.send(JSON.stringify(audioMessage))
-        } catch (error) {
-          console.error('Error in audio processing:', error)
+      // Create audio context with error handling
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+        this.audioContext = new AudioContextClass({ sampleRate: 24000 })
+      } catch (e) {
+        console.error('Failed to create AudioContext:', e)
+        this.config.onError('Audio context initialization failed')
+        // Cleanup media stream
+        if (this.mediaStream) {
+          this.mediaStream.getTracks().forEach(t => t.stop())
+          this.mediaStream = null
         }
+        throw e
       }
 
-      source.connect(this.audioProcessor)
-      this.audioProcessor.connect(this.audioContext.destination)
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume()
+      }
 
-      console.log('Audio streaming started')
+      const source = this.audioContext.createMediaStreamSource(this.mediaStream)
+
+      try {
+        await this.audioContext.audioWorklet.addModule('audio-processor.js')
+        const workletNode = new AudioWorkletNode(this.audioContext, 'audio-processor')
+
+        workletNode.port.onmessage = (event) => {
+          try {
+            if (!this.isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+              return
+            }
+
+            // event.data is the float32array channel data from the processor
+            const inputData = event.data
+            const pcm16Data = this.convertToPCM16(inputData)
+            const audioMessage = {
+              type: 'input_audio_buffer.append',
+              audio: this.arrayBufferToBase64(pcm16Data)
+            }
+            this.ws.send(JSON.stringify(audioMessage))
+          } catch (error) {
+            console.error('Error generating audio message:', error)
+          }
+        }
+
+        source.connect(workletNode)
+        workletNode.connect(this.audioContext.destination)
+
+        // Store reference for cleanup
+        this.audioWorkletNode = workletNode
+
+        console.log('Audio streaming started using AudioWorklet')
+      } catch (error) {
+        console.error('Failed to load AudioWorklet:', error)
+        // Fallback or error out? For now error out as we want to test worklet.
+        throw error
+      }
     } catch (error) {
       console.error('Failed to start audio streaming:', error)
       this.config.onError('Failed to access microphone')
+      this.stopAudioStreaming()
       throw error
     }
   }
@@ -233,6 +292,11 @@ class RealtimeConnection {
     if (this.audioProcessor) {
       this.audioProcessor.disconnect()
       this.audioProcessor = null
+    }
+
+    if (this.audioWorkletNode) {
+      this.audioWorkletNode.disconnect()
+      this.audioWorkletNode = null
     }
 
     if (this.audioContext) {
@@ -260,10 +324,15 @@ class RealtimeConnection {
   }
 
   private arrayBufferToBase64(buffer: Int16Array): string {
-    const bytes = new Uint8Array(buffer.buffer)
     let binary = ''
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i])
+    const bytes = new Uint8Array(buffer.buffer)
+    const len = bytes.byteLength
+    const chunkSize = 0x8000 // 32KB
+
+    // Process in chunks to avoid stack overflow
+    for (let i = 0; i < len; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, len))
+      binary += String.fromCharCode.apply(null, Array.from(chunk))
     }
     return btoa(binary)
   }

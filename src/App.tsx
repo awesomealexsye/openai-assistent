@@ -1,12 +1,22 @@
 import { useEffect } from 'react'
 import { useStore } from './store'
-import Sidebar from './components/Sidebar'
-import ChatPanel from './components/ChatPanel'
+import CollapsedSidebar from './components/CollapsedSidebar'
+import SplitViewContainer from './components/SplitViewContainer'
 import Settings from './components/Settings'
 import TitleBar from './components/TitleBar'
 
 function App() {
-  const { loadChats, loadSettings, isSettingsOpen } = useStore()
+  const {
+    chats,
+    currentChatId,
+    loadChats,
+    loadSettings,
+    isSettingsOpen,
+    createNewChat,
+    selectChat,
+    deleteChat,
+    toggleSettings,
+  } = useStore()
 
   useEffect(() => {
     loadChats()
@@ -20,11 +30,18 @@ function App() {
 
       {/* Main Layout */}
       <div className="flex w-full h-full pt-12">
-        {/* Sidebar */}
-        <Sidebar />
+        {/* Collapsed Sidebar */}
+        <CollapsedSidebar
+          chats={chats}
+          currentChatId={currentChatId}
+          onNewChat={createNewChat}
+          onSelectChat={selectChat}
+          onDeleteChat={deleteChat}
+          onOpenSettings={toggleSettings}
+        />
 
-        {/* Chat Panel - Full Width */}
-        <ChatPanel />
+        {/* Split View Container - 50/50 Realtime + Traditional */}
+        <SplitViewContainer />
       </div>
 
       {/* Settings Modal */}

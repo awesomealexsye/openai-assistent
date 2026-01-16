@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Arbaz Macbook is a real-time AI assistant desktop application for macOS. It's built with Electron, React, TypeScript, and Tailwind CSS, featuring dual text/voice input modes, streaming AI responses, and a three-panel UI (sidebar, chat, canvas).
+Arbaz Macbook is a real-time AI assistant desktop application for macOS. It's built with Electron, React, TypeScript, and Tailwind CSS, featuring dual text/voice input modes, streaming AI responses, and a **split-view UI** with:
+- **Left Panel (50%)**: Realtime AI - Voice input → Text output (GPT-4o Realtime API)
+- **Right Panel (50%)**: Traditional Chat - Text/Voice input → Text output (Chat Completions API)
+- **Collapsed Sidebar**: Icon-only navigation (~60px width)
 
 ## Development Commands
 
@@ -86,10 +89,23 @@ Pattern: All CRUD operations go through `src/lib/db.ts` wrapper functions.
 
 ### Component Architecture
 
-**Three-Panel Layout** (`src/App.tsx`):
-1. **Sidebar** (`components/Sidebar.tsx`): Chat list, new chat button, settings
-2. **ChatPanel** (`components/ChatPanel.tsx`): Message display with `MessageList` and `ChatInput`
-3. **CanvasPanel** (`components/CanvasPanel.tsx`): Code blocks with Prism.js syntax highlighting
+**Split-View Layout** (`src/App.tsx`):
+1. **CollapsedSidebar** (`components/CollapsedSidebar.tsx`): Icon-only navigation with tooltips
+   - New chat button
+   - Chat list (shows 15 recent chats)
+   - Settings button
+2. **SplitViewContainer** (`components/SplitViewContainer.tsx`): Resizable 50/50 split
+   - Draggable resize handle between panels
+   - Left: **RealtimePanel** - GPT-4o Realtime API (voice → text)
+   - Right: **TraditionalPanel** - Chat Completions API (text/voice → text)
+3. **RealtimePanel** (`components/RealtimePanel.tsx`): Real-time voice conversations
+   - Voice input with automatic speech detection (VAD)
+   - Streaming text responses (NO audio output)
+   - Ephemeral messages (not saved to history)
+4. **TraditionalPanel** (`components/TraditionalPanel.tsx`): Classic chat interface
+   - Uses existing `MessageList` and `ChatInput` components
+   - Persistent chat history (saved to IndexedDB)
+5. **CanvasPanel** (`components/CanvasPanel.tsx`): Code blocks with Prism.js syntax highlighting
 
 **ChatInput Component** (`components/ChatInput.tsx`):
 - Handles both text and voice modes
@@ -150,8 +166,15 @@ await window.electronAPI.createAssemblyAiToken(apiKey)
 - `src/store/index.ts`: Global state and business logic
 - `src/lib/db.ts`: Database operations
 - `src/services/openai.ts`: Chat completions, multi-response logic
-- `src/services/assemblyai.ts`: Real-time transcription
+- `src/services/realtime.ts`: **GPT-4o Realtime API (text-only mode)**
+- `src/services/audioManager.ts`: **Centralized audio input management**
+- `src/components/App.tsx`: **Split-view layout orchestration**
+- `src/components/CollapsedSidebar.tsx`: **Icon-only sidebar navigation**
+- `src/components/SplitViewContainer.tsx`: **Resizable split panel container**
+- `src/components/RealtimePanel.tsx`: **Realtime voice → text panel**
+- `src/components/TraditionalPanel.tsx`: **Classic chat panel**
 - `src/components/ChatInput.tsx`: Input handling, voice modes, multi-response submission
+- `src/components/AudioInputSelector.tsx`: **Mic/System audio toggle component**
 - `src/components/Settings.tsx`: All configuration UI
 - `src/types/index.ts`: TypeScript definitions
 
@@ -209,3 +232,41 @@ await streamChatCompletion(
 
 - `VITE_DEV_SERVER_URL`: Set by dev script, tells Electron where to load app
 - No `.env` file by default; API keys stored in IndexedDB
+
+## Split-View Architecture (v3.0)
+
+### Key Changes from v2.0
+- **Removed**: AssemblyAI integration (no longer needed)
+- **Added**: Split-view layout with Realtime + Traditional panels side-by-side
+- **Added**: Collapsed sidebar for space efficiency
+- **Added**: Resizable panel divider (20%-80% range)
+- **Updated**: Realtime API configured for text-only output (no audio playback)
+
+### Panel Communication
+- **Realtime Panel**: Independent state, manages own WebSocket connection
+- **Traditional Panel**: Uses global Zustand store for chat persistence
+- **Audio Input**: Both panels can use microphone or system audio (BlackHole)
+- **No Conflicts**: AudioManager service prevents simultaneous access issues
+
+### UI Layout Breakdown
+```
+┌──────────────────────────────────────────────────────────┐
+│  TitleBar (Custom macOS traffic lights)                  │
+├──┬─────────────────────────┬─────────────────────────────┤
+│  │  REALTIME PANEL (50%)  │  TRADITIONAL PANEL (50%)   │
+│🤖│  ┌─────────────────────┐ │ ┌──────────────────────┐  │
+│  │  │ 🎤 Listening...     │ │ │ User: Hello          │  │
+│➕│  │ (VAD Active)        │ │ │ AI: Hi there!        │  │
+│💬│  └─────────────────────┘ │ └──────────────────────┘  │
+│💬│  AI: Response text...   │ [Type message...]         │
+│⚙ │  [Mic|System] [Connect] │ [Mic|System] [Send]       │
+└──┴─────────────────────────┴─────────────────────────────┘
+ ↑ Collapsed Sidebar (60px)
+```
+
+### Best Practices
+- Realtime panel: Use for quick voice queries, exploratory conversation
+- Traditional panel: Use for persistent conversations, multi-turn context
+- Both support mic + BlackHole (system audio capture)
+- Realtime messages are ephemeral (not saved to DB)
+- Traditional messages persist in IndexedDB

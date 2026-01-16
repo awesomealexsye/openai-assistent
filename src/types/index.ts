@@ -44,7 +44,6 @@ export interface Settings {
   vadSensitivity: number
   silenceDuration: number
   showTranscriptionPreview: boolean
-  assemblyAiApiKey: string
   responseCount: 1 | 2 | 3 | 4  // Number of responses to generate
 }
 
@@ -79,7 +78,6 @@ export interface ElectronAPI {
   windowMaximize: () => Promise<boolean>
   windowClose: () => Promise<boolean>
   isWindowMaximized: () => Promise<boolean>
-  createAssemblyAiToken: (apiKey: string) => Promise<string>
 }
 
 declare global {
