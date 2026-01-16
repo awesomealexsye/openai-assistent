@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+// Store the screenshot shortcut callback for cleanup
+let screenshotShortcutCallback = null
+
 contextBridge.exposeInMainWorld('electronAPI', {
     setAlwaysOnTop: (flag) => ipcRenderer.invoke('set-always-on-top', flag),
     setOpacity: (opacity) => ipcRenderer.invoke('set-opacity', opacity),
@@ -13,4 +16,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     windowClose: () => ipcRenderer.invoke('window-close'),
     isWindowMaximized: () => ipcRenderer.invoke('is-window-maximized'),
     createAssemblyAiToken: (apiKey) => ipcRenderer.invoke('create-assemblyai-token', apiKey),
+
+    // Screenshot APIs
+    captureScreenshot: () => ipcRenderer.invoke('capture-screenshot'),
+    onScreenshotShortcut: (callback) => {
+        // Remove previous listener if exists
+        if (screenshotShortcutCallback) {
+            ipcRenderer.removeListener('screenshot-shortcut-triggered', screenshotShortcutCallback)
+        }
+        screenshotShortcutCallback = callback
+        ipcRenderer.on('screenshot-shortcut-triggered', callback)
+    },
+    removeScreenshotShortcutListener: () => {
+        if (screenshotShortcutCallback) {
+            ipcRenderer.removeListener('screenshot-shortcut-triggered', screenshotShortcutCallback)
+            screenshotShortcutCallback = null
+        }
+    },
 })

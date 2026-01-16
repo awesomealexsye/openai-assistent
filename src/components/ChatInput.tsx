@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store'
-import { Send, Mic, MicOff, Loader2, Zap, Square, Speaker, X, Activity } from 'lucide-react'
+import { Send, Mic, MicOff, Loader2, Zap, Square, Speaker, X, Activity, Camera } from 'lucide-react'
 import { streamChatCompletion, streamMultipleChatCompletions } from '../services/openai'
 import { VoiceRecorder, transcribeAudio } from '../services/voice'
 import { RealtimeConnection } from '../services/realtime'
 import { AssemblyAiService } from '../services/assemblyai'
-import { Message } from '../types'
+import { Message, Attachment } from '../types'
 import { detectBlackholeDevice } from '../lib/audioDevices'
 
 const ChatInput = () => {
@@ -19,6 +19,10 @@ const ChatInput = () => {
     setInputMode,
     voiceState,
     setVoiceState,
+    pendingAttachments,
+    addPendingAttachment,
+    removePendingAttachment,
+    clearPendingAttachments,
   } = useStore()
 
   const [input, setInput] = useState('')
@@ -33,6 +37,47 @@ const ChatInput = () => {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [hasBlackhole, setHasBlackhole] = useState(false)
   const [activeAudioSource, setActiveAudioSource] = useState<'microphone' | 'system-audio' | 'assembly-ai' | null>(null)
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false)
+
+  // Screenshot capture function
+  const captureScreenshot = async () => {
+    if (isCapturingScreenshot) return
+
+    try {
+      setIsCapturingScreenshot(true)
+
+      if (!window.electronAPI?.captureScreenshot) {
+        console.error('Screenshot API not available')
+        return
+      }
+
+      const result = await window.electronAPI.captureScreenshot()
+
+      if (result.success && result.dataUrl) {
+        const attachment: Attachment = {
+          id: Date.now().toString(),
+          type: 'image/png',
+          dataUrl: result.dataUrl,
+          width: result.width || 0,
+          height: result.height || 0,
+          timestamp: Date.now(),
+        }
+
+        addPendingAttachment(attachment)
+
+        // Focus textarea after adding screenshot
+        setTimeout(() => {
+          textareaRef.current?.focus()
+        }, 100)
+      } else {
+        console.error('Screenshot capture failed:', result.error)
+      }
+    } catch (error) {
+      console.error('Screenshot capture error:', error)
+    } finally {
+      setIsCapturingScreenshot(false)
+    }
+  }
 
   // Check and request microphone permission
   const checkMicrophonePermission = async (): Promise<boolean> => {
@@ -101,18 +146,21 @@ const ChatInput = () => {
   }, [input])
 
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim() || !currentChat || !settings.apiKey) return
+    // Allow sending with just attachments (no text required if images attached)
+    if ((!messageText.trim() && pendingAttachments.length === 0) || !currentChat || !settings.apiKey) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: messageText.trim(),
+      content: messageText.trim() || (pendingAttachments.length > 0 ? 'What do you see in this image?' : ''),
       timestamp: Date.now(),
-      type: 'text',
+      type: pendingAttachments.length > 0 ? 'image' : 'text',
+      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined,
     }
 
     await addMessage(userMessage)
     setInput('')
+    clearPendingAttachments() // Clear attachments after sending
     setIsStreaming(true)
 
     // Check if we need multiple responses
@@ -555,6 +603,21 @@ const ChatInput = () => {
     }
   }, [])
 
+  // Register global screenshot shortcut listener
+  useEffect(() => {
+    if (window.electronAPI?.onScreenshotShortcut) {
+      window.electronAPI.onScreenshotShortcut(() => {
+        captureScreenshot()
+      })
+    }
+
+    return () => {
+      if (window.electronAPI?.removeScreenshotShortcutListener) {
+        window.electronAPI.removeScreenshotShortcutListener()
+      }
+    }
+  }, [])
+
   return (
     <div className="p-4">
       <div className="max-w-4xl mx-auto">
@@ -562,6 +625,37 @@ const ChatInput = () => {
         {voiceState.error && (
           <div className="mb-3 px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
             {voiceState.error}
+          </div>
+        )}
+
+        {/* Pending Attachments Preview */}
+        {pendingAttachments.length > 0 && (
+          <div className="mb-3 p-3 bg-gray-800/50 border border-gray-700 rounded-xl">
+            <div className="flex items-center gap-2 mb-2 text-xs text-gray-400">
+              <Camera size={14} />
+              <span>{pendingAttachments.length} screenshot{pendingAttachments.length > 1 ? 's' : ''} attached</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {pendingAttachments.map((attachment) => (
+                <div key={attachment.id} className="relative group">
+                  <img
+                    src={attachment.dataUrl}
+                    alt="Screenshot preview"
+                    className="h-20 w-auto rounded-lg border border-gray-600 object-cover"
+                  />
+                  <button
+                    onClick={() => removePendingAttachment(attachment.id)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove screenshot"
+                  >
+                    <X size={12} />
+                  </button>
+                  <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/70 rounded text-[10px] text-gray-300">
+                    {attachment.width}×{attachment.height}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -628,6 +722,26 @@ const ChatInput = () => {
               )}
             </button>
 
+            {/* Screenshot Button */}
+            <button
+              onClick={captureScreenshot}
+              disabled={isCapturingScreenshot}
+              className={`p-3 rounded-xl transition-all flex-shrink-0 ${
+                isCapturingScreenshot
+                  ? 'bg-cyan-600 animate-pulse'
+                  : pendingAttachments.length > 0
+                    ? 'bg-cyan-600 hover:bg-cyan-700'
+                    : 'bg-gray-700 hover:bg-gray-600'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              title="Capture screenshot (⌘+Shift+S)"
+            >
+              {isCapturingScreenshot ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <Camera size={20} />
+              )}
+            </button>
+
             {/* Cancel Voice Recording Button - Only visible when recording or processing */}
             {(voiceState.isRecording || voiceState.isProcessing) && (
               <button
@@ -662,7 +776,7 @@ const ChatInput = () => {
             {/* Send/Stop Button */}
             <button
               onClick={isStreaming ? handleStopStreaming : () => handleSendMessage(input)}
-              disabled={!isStreaming && (!input.trim() || !settings.apiKey)}
+              disabled={!isStreaming && ((!input.trim() && pendingAttachments.length === 0) || !settings.apiKey)}
               className={`p-3 ${isStreaming
                 ? 'bg-red-600 hover:bg-red-700'
                 : 'bg-blue-600 hover:bg-blue-700'

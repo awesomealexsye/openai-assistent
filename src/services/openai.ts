@@ -9,6 +9,59 @@ export interface OpenAIStreamResponse {
   }>
 }
 
+// Type for OpenAI message content (text or image)
+type OpenAIMessageContent =
+  | string
+  | Array<
+      | { type: 'text'; text: string }
+      | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } }
+    >
+
+interface OpenAIMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: OpenAIMessageContent
+}
+
+// Convert app messages to OpenAI format, handling attachments for vision API
+const convertToOpenAIMessages = (messages: Message[]): OpenAIMessage[] => {
+  return messages.map((m) => {
+    // If message has attachments, use vision API format
+    if (m.attachments && m.attachments.length > 0) {
+      const content: Array<
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string; detail: 'auto' } }
+      > = []
+
+      // Add text content first if exists
+      if (m.content) {
+        content.push({ type: 'text', text: m.content })
+      }
+
+      // Add image attachments
+      for (const attachment of m.attachments) {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: attachment.dataUrl,
+            detail: 'auto', // Let OpenAI decide based on image size
+          },
+        })
+      }
+
+      return {
+        role: m.role,
+        content,
+      }
+    }
+
+    // Regular text message
+    return {
+      role: m.role,
+      content: m.content,
+    }
+  })
+}
+
 export const streamChatCompletion = async (
   messages: Message[],
   apiKey: string,
@@ -29,10 +82,7 @@ export const streamChatCompletion = async (
       },
       body: JSON.stringify({
         model,
-        messages: messages.map(m => ({
-          role: m.role,
-          content: m.content,
-        })),
+        messages: convertToOpenAIMessages(messages),
         temperature,
         max_tokens: maxTokens,
         stream: true,

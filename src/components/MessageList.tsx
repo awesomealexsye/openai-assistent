@@ -1,5 +1,5 @@
 import { Message } from '../types'
-import { User } from 'lucide-react'
+import { User, Image } from 'lucide-react'
 import { format } from 'date-fns'
 import Prism from 'prismjs'
 import 'prismjs/themes/prism-tomorrow.css'
@@ -103,11 +103,50 @@ const MessageList = ({ messages }: MessageListProps) => {
           <div className="flex gap-4 justify-end">
             <div className="flex-1 max-w-3xl bg-blue-600/20 border border-blue-500/30 rounded-2xl px-5 py-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-gray-400">You</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-400">You</span>
+                  {group.user.attachments && group.user.attachments.length > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-cyan-400">
+                      <Image size={12} />
+                      {group.user.attachments.length}
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-gray-500">
                   {format(group.user.timestamp, 'h:mm a')}
                 </span>
               </div>
+              {/* Image Attachments */}
+              {group.user.attachments && group.user.attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {group.user.attachments.map((attachment) => (
+                    <div key={attachment.id} className="relative group">
+                      <img
+                        src={attachment.dataUrl}
+                        alt="Screenshot"
+                        className="max-h-48 w-auto rounded-lg border border-gray-600 cursor-pointer hover:border-cyan-500 transition-colors"
+                        onClick={() => {
+                          // Open image in new window for full view
+                          const newWindow = window.open('', '_blank')
+                          if (newWindow) {
+                            newWindow.document.write(`
+                              <html>
+                                <head><title>Screenshot</title></head>
+                                <body style="margin:0;background:#1a1a1a;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                                  <img src="${attachment.dataUrl}" style="max-width:100%;max-height:100vh;" />
+                                </body>
+                              </html>
+                            `)
+                          }
+                        }}
+                      />
+                      <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/70 rounded text-[10px] text-gray-300">
+                        {attachment.width}×{attachment.height}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="text-gray-100 leading-relaxed">
                 {renderMessageContent(group.user.content)}
               </div>

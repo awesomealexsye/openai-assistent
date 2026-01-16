@@ -1,9 +1,19 @@
+export interface Attachment {
+  id: string
+  type: 'image/png' | 'image/jpeg' | 'image/webp'
+  dataUrl: string  // base64 data URI
+  width: number
+  height: number
+  timestamp: number
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
-  type?: 'text' | 'voice'
+  type?: 'text' | 'voice' | 'image'
+  attachments?: Attachment[]  // For image attachments
   responseIndex?: number  // For tracking which response this is (0-3)
   parentMessageId?: string  // Link multiple responses to same user message
 }
@@ -67,6 +77,14 @@ export interface MicrophonePermissionStatus {
   granted: boolean
 }
 
+export interface ScreenshotResult {
+  success: boolean
+  dataUrl?: string
+  width?: number
+  height?: number
+  error?: string
+}
+
 export interface ElectronAPI {
   setAlwaysOnTop: (flag: boolean) => Promise<boolean>
   setOpacity: (opacity: number) => Promise<boolean>
@@ -80,6 +98,9 @@ export interface ElectronAPI {
   windowClose: () => Promise<boolean>
   isWindowMaximized: () => Promise<boolean>
   createAssemblyAiToken: (apiKey: string) => Promise<string>
+  captureScreenshot: () => Promise<ScreenshotResult>
+  onScreenshotShortcut: (callback: () => void) => void
+  removeScreenshotShortcutListener: () => void
 }
 
 declare global {

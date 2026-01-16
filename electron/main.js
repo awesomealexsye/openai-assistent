@@ -1,7 +1,57 @@
-const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron')
+const { app, BrowserWindow, ipcMain, systemPreferences, desktopCapturer, screen, globalShortcut } = require('electron')
 const path = require('path')
 
 let mainWindow
+
+// Screenshot capture function
+async function captureScreen() {
+    try {
+        // Check screen recording permission on macOS
+        if (process.platform === 'darwin') {
+            const status = systemPreferences.getMediaAccessStatus('screen')
+            if (status !== 'granted') {
+                // Try to trigger permission prompt by accessing sources
+                // macOS will show permission dialog automatically
+            }
+        }
+
+        // Get primary display info
+        const primaryDisplay = screen.getPrimaryDisplay()
+        const { width, height } = primaryDisplay.size
+        const scaleFactor = primaryDisplay.scaleFactor
+
+        // Get all screen sources
+        const sources = await desktopCapturer.getSources({
+            types: ['screen'],
+            thumbnailSize: {
+                width: Math.floor(width * scaleFactor),
+                height: Math.floor(height * scaleFactor)
+            }
+        })
+
+        if (sources.length === 0) {
+            return { success: false, error: 'No screen sources available' }
+        }
+
+        // Get the primary screen source
+        const primarySource = sources[0]
+        const thumbnail = primarySource.thumbnail
+
+        // Convert to data URL (PNG format)
+        const dataUrl = thumbnail.toDataURL()
+        const size = thumbnail.getSize()
+
+        return {
+            success: true,
+            dataUrl: dataUrl,
+            width: size.width,
+            height: size.height
+        }
+    } catch (error) {
+        console.error('Screenshot capture error:', error)
+        return { success: false, error: error.message }
+    }
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -35,6 +85,18 @@ function createWindow() {
 app.whenReady().then(() => {
     createWindow()
 
+    // Register global shortcut for screenshot (Cmd+Shift+S on macOS, Ctrl+Shift+S on Windows/Linux)
+    const shortcut = process.platform === 'darwin' ? 'Command+Shift+S' : 'Control+Shift+S'
+    const registered = globalShortcut.register(shortcut, () => {
+        if (mainWindow) {
+            mainWindow.webContents.send('screenshot-shortcut-triggered')
+        }
+    })
+
+    if (!registered) {
+        console.warn('Screenshot shortcut registration failed')
+    }
+
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow()
@@ -46,6 +108,11 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit()
     }
+})
+
+// Unregister all shortcuts when quitting
+app.on('will-quit', () => {
+    globalShortcut.unregisterAll()
 })
 
 // IPC Handlers
@@ -157,4 +224,9 @@ ipcMain.handle('create-assemblyai-token', async (event, apiKey) => {
         console.error('Error creating AssemblyAI token:', error)
         throw error
     }
+})
+
+// Screenshot capture handler
+ipcMain.handle('capture-screenshot', async () => {
+    return await captureScreen()
 })

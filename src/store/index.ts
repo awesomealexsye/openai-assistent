@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Chat, Message, Settings, InputMode, VoiceState } from '../types'
+import { Chat, Message, Settings, InputMode, VoiceState, Attachment } from '../types'
 import {
   saveChat,
   getChat,
@@ -29,6 +29,9 @@ interface AppState {
   // Canvas
   codeBlocks: Array<{ language: string; code: string; filename?: string }>
 
+  // Pending attachments (for screenshots before sending)
+  pendingAttachments: Attachment[]
+
   // Actions
   loadChats: () => Promise<void>
   createNewChat: () => Promise<void>
@@ -45,6 +48,11 @@ interface AppState {
   setVoiceState: (state: Partial<VoiceState>) => void
   addCodeBlock: (language: string, code: string, filename?: string) => void
   clearError: () => void
+
+  // Attachment actions
+  addPendingAttachment: (attachment: Attachment) => void
+  removePendingAttachment: (attachmentId: string) => void
+  clearPendingAttachments: () => void
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -62,6 +70,7 @@ export const useStore = create<AppState>((set, get) => ({
     error: null,
   },
   codeBlocks: [],
+  pendingAttachments: [],
 
   loadChats: async () => {
     try {
@@ -271,5 +280,22 @@ export const useStore = create<AppState>((set, get) => ({
 
   clearError: () => {
     set({ error: null })
+  },
+
+  // Attachment actions
+  addPendingAttachment: (attachment: Attachment) => {
+    set((state) => ({
+      pendingAttachments: [...state.pendingAttachments, attachment],
+    }))
+  },
+
+  removePendingAttachment: (attachmentId: string) => {
+    set((state) => ({
+      pendingAttachments: state.pendingAttachments.filter((a) => a.id !== attachmentId),
+    }))
+  },
+
+  clearPendingAttachments: () => {
+    set({ pendingAttachments: [] })
   },
 }))
